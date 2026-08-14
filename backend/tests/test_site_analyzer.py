@@ -38,6 +38,12 @@ def rich_html(extra_head: str = "") -> str:
     <html>
       <head>
         <title>Clínica Aurora | Estética em Campinas</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta
+          name="description"
+          content="Clínica de estética em Campinas com tratamentos personalizados."
+        >
+        <link rel="canonical" href="https://clinic.example/">
         {extra_head}
         <script type="application/ld+json">
         {{
@@ -58,6 +64,11 @@ def rich_html(extra_head: str = "") -> str:
         <h1>Clínica Aurora</h1>
         <h2>Serviços e tratamentos</h2>
         <p>Endereço: Rua das Flores, 10 - Campinas - CEP 13000-000.</p>
+        <a href="https://wa.me/5519999999999">Agende pelo WhatsApp</a>
+        <form action="/contato" method="post">
+          <input name="nome">
+        </form>
+        <img src="clinica.jpg" alt="Recepção da Clínica Aurora">
         <p>{body}</p>
       </body>
     </html>
@@ -84,6 +95,19 @@ def test_ready_public_site_scores_100() -> None:
     assert result.confidence == 1.0
     assert result.signals["oai_searchbot_allowed"] is True
     assert result.signals["local_business_schema"] is True
+    assert result.signals["https_enabled"] is True
+    assert result.signals["mobile_viewport_present"] is True
+    assert result.signals["form_present"] is True
+    assert result.signals["whatsapp_link_present"] is True
+    assert result.signals["contact_channel_present"] is True
+    assert result.signals["action_cta_present"] is True
+    assert result.signals["lead_capture_path_present"] is True
+    assert result.signals["meta_description_present"] is True
+    assert result.signals["canonical_present"] is True
+    assert result.signals["heading_structure_basic"] is True
+    assert result.signals["images_alt_attributes_complete"] is True
+    assert result.evidence["form_count"] == 1
+    assert result.evidence["image_count"] == 1
     assert result.evidence["word_count"] >= 120
 
 
@@ -135,3 +159,38 @@ def test_missing_robots_file_is_treated_as_allowed() -> None:
 
     assert result.signals["googlebot_allowed"] is True
     assert result.signals["oai_searchbot_allowed"] is True
+
+
+def test_sparse_page_exposes_web_gaps_without_inventing_performance() -> None:
+    page_url = "https://clinic.example/"
+    robots_url = "https://clinic.example/robots.txt"
+    sparse_html = """
+    <html>
+      <head><title>Home</title></head>
+      <body>
+        <h2>Bem-vindo</h2>
+        <img src="hero.jpg">
+        <p>Clínica local.</p>
+      </body>
+    </html>
+    """
+    fetcher = FakeFetcher(
+        {
+            page_url: html_response(page_url, sparse_html),
+            robots_url: robots_response(robots_url, "User-agent: *\nAllow: /\n"),
+        }
+    )
+
+    result = SiteAnalyzer(fetcher=fetcher).analyze(page_url)
+
+    assert result.signals["mobile_viewport_present"] is False
+    assert result.signals["form_present"] is False
+    assert result.signals["contact_channel_present"] is False
+    assert result.signals["lead_capture_path_present"] is False
+    assert result.signals["action_cta_present"] is False
+    assert result.signals["meta_description_present"] is False
+    assert result.signals["canonical_present"] is False
+    assert result.signals["heading_structure_basic"] is False
+    assert result.signals["images_alt_attributes_complete"] is False
+    assert "core_web_vitals" not in result.signals
+    assert "performance_score" not in result.signals
