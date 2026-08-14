@@ -10,7 +10,7 @@ O produto final não será exclusivo para desenvolvimento web, automação ou SE
 
 A visão completa está em [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) e o planejamento em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Estado atual — v0.3.4
+## Estado atual — v0.3.5
 
 A base já possui:
 
@@ -20,7 +20,7 @@ A base já possui:
 - prospects e evidências com fonte/confiança;
 - Discovery Engine por nicho + cidade + UF;
 - provider mock;
-- provider inicial OpenStreetMap/Overpass;
+- provider experimental OpenStreetMap/Overpass;
 - deduplicação e reutilização de prospects;
 - Site Analyzer por URL;
 - leitura de HTML, `robots.txt`, `noindex`, `X-Robots-Tag` e JSON-LD;
@@ -37,6 +37,8 @@ A base já possui:
 - export de Discovery Runs em CSV e JSON;
 - contrato de export JSON versionado;
 - proteção contra CSV formula injection;
+- validação end-to-end com quatro sites públicos reais;
+- workflow manual de validação ao vivo;
 - CI, lint e testes.
 
 Ainda **não** existem FreelancerProfile, precificação, chat com IA, abordagem automática, proposta ou demo. Essas fases continuam fora do escopo de propósito.
@@ -131,6 +133,14 @@ Quando um site é auditado, o candidato pode retornar uma avaliação como:
 ```
 
 Os campos antigos de Automation Opportunity continuam persistidos temporariamente por compatibilidade com versões anteriores, mas **não são mais o conceito principal nem determinam o ranking atual**.
+
+### Estado do provider OpenStreetMap/Overpass
+
+O provider inicial continua disponível como fonte experimental e configurável. Durante a validação v0.3.5, chamadas feitas a partir de runners cloud do GitHub Actions sofreram 502/timeouts mesmo com consultas pequenas e endpoint alternativo.
+
+Por isso a disponibilidade do Overpass **não é usada como gate de CI**. O provider possui testes determinísticos para query, payload e tratamento de erro, mas ainda não deve ser tratado como a fonte definitiva do MVP.
+
+O próximo milestone é justamente escolher/endurecer um caminho de discovery suficientemente confiável para uso real.
 
 ## Exportando um run
 
@@ -249,6 +259,25 @@ Isso **não significa 100% de acurácia no mundo real**: é uma amostra pequena,
 
 Detalhes em [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## Validação end-to-end v0.3.5
+
+A v0.3.5 executou o pipeline completo com quatro empresas públicas reais em dois grupos: clínicas de estética em Belo Horizonte/MG e barbearias em Campinas/SP.
+
+Na execução final:
+
+- 4 empresas entraram no pipeline;
+- 4 sites foram auditados ao vivo;
+- nenhuma auditoria falhou;
+- todos os candidatos auditados receberam OpportunityAssessment;
+- ranking e deduplicação permaneceram consistentes;
+- exports CSV/JSON bateram com os runs persistidos.
+
+A revisão manual também encontrou um falso positivo: títulos de página longos eram marcados como "pouco descritivos" apenas por ultrapassarem 75 caracteres. A regra foi corrigida e ganhou teste de regressão, sem alterar os pesos do score.
+
+Os quatro sites da amostra final receberam `low_opportunity`. Isso é aceitável e desejável: o LeadForge não deve fabricar uma oportunidade forte quando os gaps observados são pequenos.
+
+A amostra não valida cobertura/recall do provider Overpass. Detalhes e limitações estão em [`docs/MVP_VALIDATION.md`](docs/MVP_VALIDATION.md).
+
 ## Diagnósticos separados
 
 ### Web Development Opportunity
@@ -305,15 +334,15 @@ ruff check .
 pytest -q
 ```
 
-O GitHub Actions valida lint, testes, migrations e seed.
+O GitHub Actions valida lint, testes, migrations e seed. Workflows que dependem de sites reais permanecem manuais para evitar CI flaky por indisponibilidade de terceiros.
 
 ## Próximo recorte
 
-A próxima etapa planejada é **v0.3.5 — validação end-to-end do MVP**.
+A próxima etapa planejada é **v0.3.6 — Discovery Provider hardening**.
 
-Antes de iniciar perfil do freelancer e Compatibility Engine, a ideia é executar o fluxo atual em pequenas buscas reais, revisar os leads priorizados, checar cobertura/falhas e usar os exports manualmente. Se aparecer problema, corrigimos o bloqueador específico em vez de abrir várias funcionalidades novas.
+Antes de iniciar FreelancerProfile e Compatibility Engine, precisamos tornar a descoberta de empresas mais confiável: avaliar uma fonte/API permitida com cobertura, latência, custo, proveniência e estabilidade adequados e então implementar apenas um provider adicional atrás da interface já existente.
 
-Ainda não é hora de adicionar preço, chat, outreach ou demo.
+Ainda não é hora de adicionar preço, chat, outreach, demo ou novos módulos de serviço.
 
 Veja o plano completo em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
