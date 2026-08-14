@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.models.discovery import DiscoveryCandidate, DiscoveryRun
 from app.models.entities import Evidence, Prospect, ScoreComponent, utcnow
 from app.models.site_audit import SiteAudit
-from app.services.discovery.contracts import DiscoveryProvider, DiscoveryQuery
+from app.services.discovery.contracts import (
+    DiscoveredBusiness,
+    DiscoveryProvider,
+    DiscoveryQuery,
+)
 from app.services.discovery.providers import DiscoveryProviderError
 from app.services.prospect_identity import build_prospect_dedup_key
 from app.services.scoring.engine import OpportunityScorer, ScoreResult
@@ -34,7 +38,7 @@ def _medium_high_ticket_signal(niche: str) -> bool | None:
     return None
 
 
-def _commercial_signals(business, niche: str) -> dict[str, bool]:
+def _commercial_signals(business: DiscoveredBusiness, niche: str) -> dict[str, bool]:
     signals: dict[str, bool] = {}
     if business.website:
         signals["website_present"] = True
@@ -72,7 +76,7 @@ def _priority_bucket(
     return "monitor"
 
 
-def _rank_key(candidate: DiscoveryCandidate) -> tuple[int, int, int, float, float]:
+def _rank_key(candidate: DiscoveryCandidate) -> tuple[int, int, int, float, float, int]:
     bucket_order = {
         "dual_signal": 0,
         "automation_signal": 1,
@@ -89,6 +93,7 @@ def _rank_key(candidate: DiscoveryCandidate) -> tuple[int, int, int, float, floa
         site_gap_order,
         -candidate.automation_confidence,
         -ai_confidence,
+        candidate.prospect_id,
     )
 
 
@@ -112,6 +117,7 @@ class DiscoveryEngine:
         analyze_sites: bool = True,
         site_audit_limit: int = 5,
     ) -> DiscoveryRunResult:
+        audit_budget = max(0, min(site_audit_limit, query.limit))
         run = DiscoveryRun(
             niche=query.niche,
             city=query.city,
@@ -119,7 +125,7 @@ class DiscoveryEngine:
             provider=self.provider.name,
             requested_limit=query.limit,
             analyze_sites=analyze_sites,
-            site_audit_limit=site_audit_limit,
+            site_audit_limit=audit_budget,
         )
         db.add(run)
         db.flush()
@@ -134,10 +140,20 @@ class DiscoveryEngine:
             raise
 
         run.discovered_count = len(businesses)
-        audit_budget = max(0, site_audit_limit)
         candidates: list[DiscoveryCandidate] = []
+        seen_prospects: set[str] = set()
+        audit_attempts = 0
 
         for business in businesses:
+            candidate_key = build_prospect_dedup_key(
+                business.name,
+                business.city,
+                business.state,
+            )
+            if candidate_key in seen_prospects:
+                continue
+            seen_prospects.add(candidate_key)
+
             prospect, created = self._upsert_prospect(db, query, business)
             if created:
                 run.created_count += 1
@@ -150,7 +166,8 @@ class DiscoveryEngine:
 
             site_audit: SiteAudit | None = None
             audit_failed = False
-            if analyze_sites and business.website and run.audited_count < audit_budget:
+            if analyze_sites and business.website and audit_attempts < audit_budget:
+                audit_attempts += 1
                 try:
                     site_audit = self._analyze_site(db, prospect, business.website)
                     run.audited_count += 1
@@ -193,7 +210,11 @@ class DiscoveryEngine:
         return DiscoveryRunResult(run=run, candidates=tuple(ordered))
 
     @staticmethod
-    def _upsert_prospect(db: Session, query: DiscoveryQuery, business) -> tuple[Prospect, bool]:
+    def _upsert_prospect(
+        db: Session,
+        query: DiscoveryQuery,
+        business: DiscoveredBusiness,
+    ) -> tuple[Prospect, bool]:
         dedup_key = build_prospect_dedup_key(business.name, business.city, business.state)
         prospect = db.scalar(select(Prospect).where(Prospect.dedup_key == dedup_key))
         if prospect is not None:
@@ -221,7 +242,7 @@ class DiscoveryEngine:
     def _record_discovery_evidence(
         db: Session,
         prospect: Prospect,
-        business,
+        business: DiscoveredBusiness,
         automation: ScoreResult,
     ) -> None:
         source = business.source_url or "discovery-provider"
