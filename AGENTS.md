@@ -8,26 +8,24 @@ Build LeadForge AI incrementally as a real B2B opportunity intelligence product.
 
 ## Current scope
 
-The current milestone is **v0.1 — Foundation**.
+The current milestone is **v0.2 — Site Analyzer**.
 
-Do not implement future roadmap items unless explicitly requested.
+Do not implement later roadmap items unless explicitly requested.
 
-v0.1 includes:
+v0.2 includes:
 
-- backend project structure;
-- FastAPI application;
-- SQLAlchemy models;
-- Alembic migrations;
-- SQLite local database;
-- fictional seed data;
+- the v0.1 backend foundation;
 - deterministic Automation Opportunity Scoring;
-- deterministic AI Discoverability scoring foundation without a real crawler;
-- minimal prospect list/detail API;
-- tests and CI;
-- linting configuration;
-- updated setup documentation.
+- deterministic AI Discoverability scoring;
+- one-URL-at-a-time public site analysis;
+- safe HTTP fetching with SSRF-oriented validation;
+- redirect, timeout, and response-size limits;
+- `robots.txt`, `noindex`, `X-Robots-Tag`, HTML text, headings, and JSON-LD analysis;
+- persisted site audits that may optionally reference a prospect;
+- site-audit API endpoints;
+- tests, migrations, CI, and accurate documentation.
 
-Do **not** implement real crawling, LLM analysis, outreach sending, demo generation, or production deployment yet.
+Do **not** implement broad web crawling, automatic business discovery, JavaScript execution, LLM analysis, outreach sending, demo generation, or production deployment yet.
 
 ## Engineering rules
 
@@ -40,7 +38,7 @@ Do **not** implement real crawling, LLM analysis, outreach sending, demo generat
 7. Avoid placeholder TODOs when a small real implementation is possible.
 8. Keep external providers behind interfaces when credentials would otherwise be required.
 9. The project must remain runnable in demo mode without secrets.
-10. Do not deploy, publish, send outreach, or perform destructive actions without explicit human authorization.
+10. Do not deploy, merge, send outreach, or perform destructive actions without explicit human authorization.
 
 ## Data integrity
 
@@ -53,7 +51,7 @@ The product must distinguish:
 
 Never turn absence of evidence into evidence of absence.
 
-Every externally derived fact should eventually support provenance metadata such as source, timestamp, and confidence.
+Every externally derived fact should preserve provenance such as source URL, observation time, and confidence when applicable.
 
 ## Automation Opportunity Scoring
 
@@ -71,7 +69,7 @@ Scoring output should expose:
 
 `confidence` represents evidence coverage, not probability of closing a sale.
 
-Weights must be configurable/documented and should eventually be recalibrated from real outcomes.
+Weights must be documented and should eventually be recalibrated from real outcomes.
 
 ## AI Discoverability
 
@@ -93,7 +91,26 @@ Do not claim that a score predicts whether ChatGPT, Google, or another AI system
 
 Do not award points for speculative "AI SEO hacks", `llms.txt`, invented markup, or other signals without reliable evidence that they matter.
 
-Store score version, components, confidence, and supporting evidence separately from the automation score.
+Store score version, confidence, supporting signals, and evidence separately from the automation score.
+
+## Site fetching and SSRF
+
+Any server-side fetcher that accepts user-controlled URLs must be treated as security-sensitive.
+
+At minimum:
+
+- allow only HTTP/HTTPS;
+- reject credentials embedded in URLs;
+- reject localhost, loopback, private, link-local, reserved, and metadata destinations;
+- validate DNS results before requests;
+- revalidate every redirect target;
+- use timeouts;
+- cap redirects;
+- cap response size;
+- avoid inheriting arbitrary proxy configuration;
+- do not execute JavaScript in v0.2.
+
+The current DNS-before-connect validation is MVP protection, not perfect network isolation. Before exposing the fetcher as a public production service, harden it against DNS rebinding / TOCTOU and infrastructure-specific proxy behavior.
 
 ## LLM rules
 
@@ -114,9 +131,6 @@ Never commit secrets.
 - `.env` must remain ignored.
 - `.env.example` contains placeholders only.
 - Do not log tokens or credentials.
-- Network fetchers must use timeouts and response-size limits.
-- Protect server-side fetchers against SSRF.
-- Do not access loopback, private, link-local, or metadata-service addresses from arbitrary URLs.
 - Do not bypass authentication, CAPTCHAs, paywalls, rate limits, or anti-bot systems.
 - Prefer official APIs and permitted public sources.
 
@@ -158,6 +172,7 @@ A milestone is done only when:
 - implemented behavior matches the requested scope;
 - tests pass;
 - linting passes;
+- migrations work from a clean database;
 - setup instructions are accurate;
 - no secrets are present;
 - major architecture decisions are documented;
