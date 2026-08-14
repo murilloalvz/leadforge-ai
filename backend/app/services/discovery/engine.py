@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.discovery import DiscoveryCandidate, DiscoveryRun
 from app.models.entities import Evidence, Prospect, ScoreComponent, utcnow
+from app.models.opportunity_assessment import OpportunityAssessment
 from app.models.site_audit import SiteAudit
 from app.services.discovery.contracts import (
     DiscoveredBusiness,
@@ -15,6 +16,8 @@ from app.services.discovery.contracts import (
     DiscoveryQuery,
 )
 from app.services.discovery.providers import DiscoveryProviderError
+from app.services.opportunity import OpportunityContext, OpportunityModule
+from app.services.opportunity.web_development import WebDevelopmentOpportunityModule
 from app.services.prospect_identity import build_prospect_dedup_key
 from app.services.scoring.engine import OpportunityScorer, ScoreResult
 from app.services.site_analyzer import SiteAnalyzer, SiteFetchError, UnsafeURL
@@ -39,6 +42,7 @@ def _medium_high_ticket_signal(niche: str) -> bool | None:
 
 
 def _commercial_signals(business: DiscoveredBusiness, niche: str) -> dict[str, bool]:
+    """Legacy automation signals kept while the generic opportunity model is introduced."""
     signals: dict[str, bool] = {}
     if business.website:
         signals["website_present"] = True
@@ -53,46 +57,30 @@ def _commercial_signals(business: DiscoveredBusiness, niche: str) -> dict[str, b
     return signals
 
 
-def _priority_bucket(
-    automation: ScoreResult,
-    ai_score: int | None,
-    ai_confidence: float | None,
-) -> str:
-    automation_signal = automation.total >= 25 and automation.confidence >= 0.12
-    site_signal = (
-        ai_score is not None
-        and ai_confidence is not None
-        and ai_score < 60
-        and ai_confidence >= 0.5
-    )
-    if automation_signal and site_signal:
-        return "dual_signal"
-    if automation_signal:
-        return "automation_signal"
-    if site_signal:
-        return "site_opportunity"
-    if automation.confidence < 0.2 and (ai_confidence is None or ai_confidence < 0.5):
+def _priority_bucket(assessment: OpportunityAssessment | None) -> str:
+    if assessment is None or assessment.confidence < 0.5:
         return "insufficient_evidence"
-    return "monitor"
+    if assessment.score >= 60:
+        return "high_opportunity"
+    if assessment.score >= 30:
+        return "medium_opportunity"
+    return "low_opportunity"
 
 
-def _rank_key(candidate: DiscoveryCandidate) -> tuple[int, int, int, float, float, int]:
+def _rank_key(candidate: DiscoveryCandidate) -> tuple[int, int, float, int]:
     bucket_order = {
-        "dual_signal": 0,
-        "automation_signal": 1,
-        "site_opportunity": 2,
-        "monitor": 3,
-        "insufficient_evidence": 4,
+        "high_opportunity": 0,
+        "medium_opportunity": 1,
+        "low_opportunity": 2,
+        "insufficient_evidence": 3,
     }
-    site_score = candidate.ai_discoverability_score
-    site_gap_order = site_score if site_score is not None else 101
-    ai_confidence = candidate.ai_discoverability_confidence or 0.0
+    assessment = candidate.opportunity_assessment
+    score = assessment.score if assessment is not None else -1
+    confidence = assessment.confidence if assessment is not None else 0.0
     return (
         bucket_order.get(candidate.priority_bucket, 9),
-        -candidate.automation_score,
-        site_gap_order,
-        -candidate.automation_confidence,
-        -ai_confidence,
+        -score,
+        -confidence,
         candidate.prospect_id,
     )
 
@@ -104,10 +92,12 @@ class DiscoveryEngine:
         *,
         site_analyzer: SiteAnalyzer | None = None,
         scorer: OpportunityScorer | None = None,
+        opportunity_module: OpportunityModule | None = None,
     ) -> None:
         self.provider = provider
         self.site_analyzer = site_analyzer or SiteAnalyzer()
         self.scorer = scorer or OpportunityScorer()
+        self.opportunity_module = opportunity_module or WebDevelopmentOpportunityModule()
 
     def run(
         self,
@@ -161,30 +151,29 @@ class DiscoveryEngine:
                 run.reused_count += 1
 
             automation = self.scorer.score(_commercial_signals(business, query.niche))
-            self._maybe_update_prospect_score(db, prospect, automation)
+            self._maybe_update_legacy_prospect_score(db, prospect, automation)
             self._record_discovery_evidence(db, prospect, business, automation)
 
             site_audit: SiteAudit | None = None
-            audit_failed = False
+            assessment: OpportunityAssessment | None = None
             if analyze_sites and business.website and audit_attempts < audit_budget:
                 audit_attempts += 1
                 try:
                     site_audit = self._analyze_site(db, prospect, business.website)
+                    assessment = self._assess_opportunity(db, run, prospect, site_audit)
                     run.audited_count += 1
                 except (SiteFetchError, UnsafeURL):
                     run.audit_failure_count += 1
-                    audit_failed = True
 
             ai_score = site_audit.score if site_audit else None
             ai_confidence = site_audit.confidence if site_audit else None
-            bucket = _priority_bucket(automation, ai_score, ai_confidence)
-            if audit_failed and automation.confidence < 0.2:
-                bucket = "insufficient_evidence"
+            bucket = _priority_bucket(assessment)
 
             candidate = DiscoveryCandidate(
                 run_id=run.id,
                 prospect_id=prospect.id,
                 site_audit_id=site_audit.id if site_audit else None,
+                opportunity_assessment_id=assessment.id if assessment else None,
                 source_external_id=business.external_id,
                 source_url=business.source_url,
                 source_category=business.category,
@@ -270,7 +259,7 @@ class DiscoveryEngine:
             )
 
     @staticmethod
-    def _maybe_update_prospect_score(
+    def _maybe_update_legacy_prospect_score(
         db: Session,
         prospect: Prospect,
         result: ScoreResult,
@@ -314,3 +303,36 @@ class DiscoveryEngine:
         db.add(audit)
         db.flush()
         return audit
+
+    def _assess_opportunity(
+        self,
+        db: Session,
+        run: DiscoveryRun,
+        prospect: Prospect,
+        site_audit: SiteAudit,
+    ) -> OpportunityAssessment:
+        result = self.opportunity_module.assess(
+            OpportunityContext(signals=site_audit.signals, evidence=site_audit.evidence)
+        )
+        findings = [
+            {
+                **asdict(finding),
+                "certainty": finding.certainty.value,
+            }
+            for finding in result.findings
+        ]
+        assessment = OpportunityAssessment(
+            prospect_id=prospect.id,
+            discovery_run_id=run.id,
+            site_audit_id=site_audit.id,
+            service_category=result.service_category,
+            score=result.score,
+            confidence=result.confidence,
+            version=result.version,
+            summary=result.summary,
+            recommended_service=result.recommended_service,
+            findings=findings,
+        )
+        db.add(assessment)
+        db.flush()
+        return assessment
