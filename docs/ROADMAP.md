@@ -92,27 +92,43 @@ O resultado 25/25 vale somente para essa amostra inicial e não deve ser apresen
 - testes de conteúdo, determinismo, endpoint e segurança do CSV;
 - documentação em `docs/EXPORT.md`.
 
-### v0.3.5 — Validação end-to-end do MVP — próximo passo
+### v0.3.5 — Validação end-to-end do MVP — concluída
 
-Antes de iniciar FreelancerProfile e Compatibility, validar o fluxo completo atual em uso real controlado:
+- gate reproduzível com quatro empresas públicas reais, em dois nichos/cidades;
+- 4/4 sites auditados ao vivo na execução final;
+- 0 falhas de auditoria nessa amostra;
+- OpportunityAssessment criado para todos os sites auditados;
+- ranking, deduplicação e exports CSV/JSON verificados de ponta a ponta;
+- revisão manual dos candidatos priorizados;
+- falso positivo em títulos longos detectado, corrigido e coberto por teste de regressão;
+- query Overpass reduzida e erros externos mais observáveis;
+- limitação do Overpass em runners cloud documentada;
+- workflow de validação ao vivo mantido manual-only para não tornar a CI normal dependente de terceiros;
+- detalhes em `docs/MVP_VALIDATION.md`.
 
-- executar pequenas buscas reais em mais de um nicho/cidade;
-- revisar manualmente os leads priorizados;
-- verificar se findings e evidências sustentam a priorização;
-- verificar falhas de coleta e cobertura de sites;
-- exportar os runs em CSV/JSON e confirmar utilidade manual;
-- registrar exemplos bons, ruins e ambíguos;
-- corrigir apenas bugs/bloqueadores encontrados;
-- não adicionar novas categorias ou Fase 2 durante essa validação.
+A validação confirma o pipeline após a entrada normalizada de empresas e o fetch real dos sites. Ela **não confirma cobertura ou disponibilidade de produção do provider Overpass**.
 
-O objetivo é decidir se o núcleo abaixo já é útil antes de aumentar a superfície do produto.
+### v0.3.6 — Discovery Provider hardening — próximo passo
 
-### v1.0 — MVP útil
+Antes de abrir a Fase 2, fortalecer a parte do produto que realmente encontra empresas:
 
-Fluxo mínimo validado:
+- definir critérios de provider de produção: cobertura, latência, custo, termos de uso, proveniência e estabilidade;
+- avaliar fontes/API permitidas sem acoplar o Discovery Engine ao fornecedor;
+- manter o provider mock para testes determinísticos;
+- manter Overpass como provider experimental enquanto sua disponibilidade não for adequada ao uso pretendido;
+- implementar somente um provider adicional quando houver uma escolha justificada;
+- testar pequenas buscas reais em mais de um nicho/cidade;
+- medir quantidade retornada, cobertura de website/contato comercial e falhas;
+- documentar custo e limitações da fonte escolhida.
+
+Não adicionar FreelancerProfile, preço, chat ou novos módulos de serviço durante esse milestone.
+
+### v1.0 — Opportunity Intelligence MVP útil
+
+Fluxo mínimo desejado:
 
 ```text
-buscar negócios locais
+buscar negócios locais com uma fonte confiável
 → analisar site
 → detectar problemas objetivos
 → criar OpportunityAssessment web
@@ -123,7 +139,7 @@ buscar negócios locais
 
 ## Fase 2 — Perfil e venda assistida
 
-Somente depois do núcleo acima estar validado.
+Somente depois do núcleo acima estar validado com um caminho de discovery suficientemente confiável.
 
 - FreelancerProfile;
 - habilidades e serviços;
