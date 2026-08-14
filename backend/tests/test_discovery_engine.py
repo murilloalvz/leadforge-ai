@@ -18,7 +18,17 @@ class FakeAnalyzer:
             score=42,
             confidence=0.9,
             score_version="ai-discoverability-v1",
-            signals={"public_http_ok": True, "indexable": True},
+            signals={
+                "public_http_ok": True,
+                "indexable": True,
+                "important_content_textual": True,
+                "business_identity_clear": True,
+                "services_clearly_described": False,
+                "location_clearly_described": False,
+                "descriptive_titles": True,
+                "structured_data_present": False,
+                "local_business_schema": False,
+            },
             evidence={"page_title": "Clínica Teste"},
             blockers=(),
             recommendations=("Melhorar descrição dos serviços.",),
@@ -74,11 +84,23 @@ def test_discovery_creates_ranked_candidates_and_reuses_prospects() -> None:
         assert first.run.created_count == 2
         assert first.run.reused_count == 0
         assert first.run.audited_count == 1
-        assert first.candidates[0].priority_bucket == "dual_signal"
-        assert first.candidates[0].rank == 1
-        assert first.candidates[0].automation_score == 38
-        assert first.candidates[0].ai_discoverability_score == 42
+
+        top = first.candidates[0]
+        assert top.priority_bucket == "medium_opportunity"
+        assert top.rank == 1
+        assert top.opportunity_assessment is not None
+        assert top.opportunity_assessment.service_category == "web_development"
+        assert top.opportunity_assessment.score == 40
+        assert top.opportunity_assessment.confidence == 1.0
+
+        # Legacy diagnostics remain persisted while the generic model is introduced.
+        assert top.automation_score == 38
+        assert top.ai_discoverability_score == 42
 
         second = discovery.run(db, query, analyze_sites=False, site_audit_limit=0)
         assert second.run.created_count == 0
         assert second.run.reused_count == 2
+        assert all(
+            candidate.priority_bucket == "insufficient_evidence"
+            for candidate in second.candidates
+        )
