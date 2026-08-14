@@ -97,7 +97,10 @@ RULES: tuple[GapRule, ...] = (
         "heading_structure_basic",
         5,
         "Hierarquia básica de headings inconsistente",
-        "A página não apresenta uma estrutura básica de headings com um único H1 e níveis coerentes.",
+        (
+            "A página não apresenta uma estrutura básica de headings "
+            "com um único H1 e níveis coerentes."
+        ),
     ),
     GapRule(
         "images_alt_attributes_complete",
