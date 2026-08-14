@@ -18,7 +18,7 @@ Read before broad changes:
 
 ## Current scope
 
-The current milestone is **v0.3.1 — Opportunity Modules foundation**.
+The current milestone is **v0.3.2 — Web evidence expansion**.
 
 The product vision is broad; the implementation scope is intentionally narrow.
 
@@ -30,18 +30,24 @@ Current market used for validation:
 
 - local businesses.
 
-v0.3.1 includes:
+v0.3.2 includes:
 
-- the existing Discovery Engine and Site Analyzer;
-- generic `OpportunityModule` contracts;
-- generic persisted `OpportunityAssessment` records;
-- explicit finding certainty states;
-- the first `web_development` module;
-- discovery ranking based on the active generic opportunity assessment;
-- legacy automation diagnostics kept only for backwards compatibility;
-- tests, migrations, CI and accurate documentation.
+- everything already implemented through v0.3.1;
+- objective HTML/site signals useful for web-development opportunities;
+- mobile viewport declaration;
+- forms and actionable contact paths;
+- WhatsApp/telephone/contact links;
+- action-oriented CTA signals;
+- HTTPS and redirect-chain evidence;
+- meta description and canonical URL presence;
+- basic heading hierarchy;
+- image `alt` attribute coverage;
+- Web Development Opportunity scoring v2 using only defensible observed signals;
+- tests and documentation that explicitly preserve unknown values.
 
 Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach generation, proposals, demos, extra service modules, bulk crawling or production deployment unless explicitly requested in a later milestone.
+
+Do **not** invent performance data, Core Web Vitals, real responsive behavior, conversion rate, budget or internal business pain from static HTML.
 
 ## Architectural boundaries
 
@@ -84,10 +90,16 @@ Never turn absence of evidence into evidence of absence.
 
 Never label a signal as confirmed unless the current collector actually observes it.
 
+Static-page findings must be scoped correctly. For example:
+
+- acceptable: "no form was found on the analyzed page";
+- unacceptable: "the company has no form anywhere".
+
 Examples of claims that must remain unknown until a suitable collector exists:
 
-- real mobile responsiveness;
+- real mobile responsiveness across breakpoints;
 - Core Web Vitals;
+- runtime performance score;
 - real conversion rate;
 - internal operational pain;
 - company budget.
@@ -100,9 +112,11 @@ Every externally derived fact should preserve source/provenance, observation tim
 
 Its score must remain deterministic, explainable and versioned.
 
-In v0.3.1 it should use only signals already collected by the Site Analyzer. The next milestone may expand objective web evidence.
+The v0.3.2 score may consume the objective signals added by the Site Analyzer, but raw observations do not automatically become commercial problems.
 
-Do not fabricate performance/mobile findings from generic HTML heuristics unless the rule is explicitly documented and defensible.
+Example: `form_present=false` is useful evidence, but it should not automatically create a scored problem when another clear contact/capture path exists.
+
+Prefer combined, defensible signals such as `lead_capture_path_present` when the product meaning depends on multiple observations.
 
 ## AI Discoverability
 
