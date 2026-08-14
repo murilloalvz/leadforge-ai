@@ -15,10 +15,12 @@ Read before broad changes:
 - `docs/PRODUCT_VISION.md`
 - `docs/ROADMAP.md`
 - `docs/ARCHITECTURE.md`
+- `docs/WEB_EVIDENCE.md`
+- `docs/CALIBRATION.md`
 
 ## Current scope
 
-The current milestone is **v0.3.2 — Web evidence expansion**.
+The current milestone is **v0.3.3 — Web opportunity calibration**.
 
 The product vision is broad; the implementation scope is intentionally narrow.
 
@@ -30,20 +32,17 @@ Current market used for validation:
 
 - local businesses.
 
-v0.3.2 includes:
+v0.3.3 includes:
 
-- everything already implemented through v0.3.1;
-- objective HTML/site signals useful for web-development opportunities;
-- mobile viewport declaration;
-- forms and actionable contact paths;
-- WhatsApp/telephone/contact links;
-- action-oriented CTA signals;
-- HTTPS and redirect-chain evidence;
-- meta description and canonical URL presence;
-- basic heading hierarchy;
-- image `alt` attribute coverage;
-- Web Development Opportunity scoring v2 using only defensible observed signals;
-- tests and documentation that explicitly preserve unknown values.
+- everything implemented through v0.3.2;
+- a small human-reviewed calibration dataset using public local-business homepages;
+- deterministic comparison of analyzer predictions against human labels;
+- false-positive gap, false-negative gap and unknown-prediction metrics;
+- a reproducible live-calibration script;
+- a manual-only GitHub Actions workflow for live calibration;
+- a location-signal correction discovered through calibration;
+- regression tests for the corrected behavior;
+- calibration documentation and explicit limitations.
 
 Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach generation, proposals, demos, extra service modules, bulk crawling or production deployment unless explicitly requested in a later milestone.
 
@@ -106,13 +105,29 @@ Examples of claims that must remain unknown until a suitable collector exists:
 
 Every externally derived fact should preserve source/provenance, observation time and confidence when applicable.
 
+## Calibration rules
+
+Calibration exists to improve evidence quality, not to manufacture impressive accuracy numbers.
+
+- Human labels must describe only what was actually reviewed.
+- `null` means the reviewer did not establish a label and must not be counted as correct/incorrect.
+- Real websites are mutable; calibration results must include dataset/version/date context.
+- A small calibration set is a smoke benchmark, not proof of general real-world accuracy.
+- Prefer fixing collection/detection errors before changing scoring weights.
+- Do not change `web-development-v2` weights without a documented calibration rationale.
+- Add a regression test for every detector bug fixed from a calibration case.
+- Keep the live calibration workflow manual; external-site availability must not make normal CI flaky.
+- Do not copy third-party website HTML into the repository just to create a dataset.
+
+The first v0.3.3 sample reached 25/25 labeled matches after correcting Brazilian city/UF location detection. This result is specific to that five-site, mostly-positive sample and must never be described as 100% real-world accuracy.
+
 ## Web development module
 
 `web_development` is the first MVP module, not the product identity.
 
 Its score must remain deterministic, explainable and versioned.
 
-The v0.3.2 score may consume the objective signals added by the Site Analyzer, but raw observations do not automatically become commercial problems.
+Raw observations do not automatically become commercial problems.
 
 Example: `form_present=false` is useful evidence, but it should not automatically create a scored problem when another clear contact/capture path exists.
 
