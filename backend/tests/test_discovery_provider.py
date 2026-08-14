@@ -1,3 +1,4 @@
+import json
 from urllib.parse import parse_qs
 
 import httpx
@@ -18,9 +19,11 @@ def test_google_places_provider_uses_bounded_field_mask_and_maps_business() -> N
         assert "places.websiteUri" in field_mask
         assert "places.nationalPhoneNumber" in field_mask
         assert "places.reviews" not in field_mask
-        payload = request.read().decode()
-        assert '"pageSize":5' in payload
-        assert "clínicas de estética em Campinas, SP, Brasil" in payload
+        payload = json.loads(request.read().decode())
+        assert payload["pageSize"] == 5
+        assert payload["textQuery"] == "clínicas de estética em Campinas, SP, Brasil"
+        assert payload["languageCode"] == "pt-BR"
+        assert payload["regionCode"] == "BR"
         return httpx.Response(
             200,
             request=request,
