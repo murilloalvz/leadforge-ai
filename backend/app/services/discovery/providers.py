@@ -167,7 +167,9 @@ class GeoapifyProvider:
                 f"Geoapify respondeu HTTP {exc.response.status_code} em {operation}"
             ) from exc
         except httpx.HTTPError as exc:
-            raise DiscoveryProviderError(f"Falha de rede ao consultar Geoapify em {operation}") from exc
+            raise DiscoveryProviderError(
+                f"Falha de rede ao consultar Geoapify em {operation}"
+            ) from exc
         except ValueError as exc:
             raise DiscoveryProviderError(f"Resposta inválida do Geoapify em {operation}") from exc
         if not isinstance(payload, dict):
@@ -192,10 +194,7 @@ class GeoapifyProvider:
             if not isinstance(feature, dict):
                 continue
             properties = feature.get("properties")
-            if (
-                isinstance(properties, dict)
-                and properties.get("feature_type") == "details"
-            ):
+            if isinstance(properties, dict) and properties.get("feature_type") == "details":
                 return properties
         return {}
 
