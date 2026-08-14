@@ -7,6 +7,7 @@ from app.models.entities import (
     Prospect,
     ScoreComponent,
 )
+from app.models.site_audit import SiteAudit
 
 __all__ = [
     "CRMActivity",
@@ -16,4 +17,5 @@ __all__ = [
     "OutreachDraft",
     "Prospect",
     "ScoreComponent",
+    "SiteAudit",
 ]
