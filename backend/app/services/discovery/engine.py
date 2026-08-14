@@ -174,6 +174,7 @@ class DiscoveryEngine:
                 prospect_id=prospect.id,
                 site_audit_id=site_audit.id if site_audit else None,
                 opportunity_assessment_id=assessment.id if assessment else None,
+                opportunity_assessment=assessment,
                 source_external_id=business.external_id,
                 source_url=business.source_url,
                 source_category=business.category,
