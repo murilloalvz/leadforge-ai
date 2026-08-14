@@ -41,87 +41,82 @@ O produto é para freelancers em geral, mas o **único módulo ativo do MVP inic
 - `OpportunityAssessment` independente do prospect;
 - taxonomia de certeza: confirmed / strong_signal / inference / unknown;
 - primeiro módulo `web_development`;
-- ranking do Discovery Engine baseado na oportunidade do módulo ativo;
-- diagnósticos antigos mantidos apenas por compatibilidade durante a transição.
+- ranking baseado na oportunidade do módulo ativo.
 
 ### v0.3.2 — Web evidence expansion — concluída
 
-- declaração de viewport mobile;
-- presença de formulário;
-- links acionáveis de WhatsApp e telefone;
-- caminho de contato/captação composto;
-- CTA detectável em elementos interativos;
-- HTTPS da URL final;
-- cadeia de redirects observada;
-- meta description;
-- canonical;
-- hierarquia básica de headings;
-- cobertura de atributo `alt` em imagens;
+- viewport, formulário, contato, CTA e HTTPS;
+- meta description, canonical, headings e imagens;
 - Web Development Opportunity `web-development-v2`;
-- documentação explícita das limitações de cada sinal.
-
-A versão continua sem afirmar performance, Core Web Vitals ou responsividade real sem uma fonte própria para isso.
+- limitações dos sinais documentadas.
 
 ### v0.3.3 — Web opportunity calibration — concluída
 
-- conjunto inicial de cinco homepages públicas com revisão humana;
-- 25 rótulos sobre identidade, serviços, localização, CTA e caminho de contato;
-- comparador determinístico de falsos positivos, falsos negativos e unknowns;
-- script reproduzível de calibração ao vivo;
-- workflow manual de calibração no GitHub Actions;
-- primeira execução: 22/25 matches, com três falsos positivos concentrados em localização;
-- correção da detecção de cidade + UF brasileira;
-- segunda execução no mesmo conjunto: 25/25 matches;
-- teste de regressão para a correção;
-- pesos de `web-development-v2` mantidos inalterados porque o erro estava na detecção, não na ponderação;
-- limitações da pequena amostra documentadas em `docs/CALIBRATION.md`.
-
-O resultado 25/25 vale somente para essa amostra inicial e não deve ser apresentado como 100% de acurácia real do produto.
+- cinco homepages públicas e 25 rótulos revisados;
+- comparador de falsos positivos/falsos negativos;
+- correção de localização brasileira com teste de regressão;
+- pesos mantidos quando o problema estava no detector.
 
 ### v0.3.4 — Export — concluída
 
-- export de `DiscoveryRun` persistido em CSV e JSON;
-- endpoint `GET /discovery-runs/{run_id}/export`;
-- contrato JSON versionado como `discovery-export-v1`;
-- empresa, fonte, ranking, score, confidence, serviço sugerido e findings preservados;
-- Site Audit, signals e evidence preservados quando disponíveis;
-- AI Discoverability mantido como diagnóstico separado;
-- CSV achatado para uso manual, mantendo estruturas complexas em JSON compacto;
-- proteção contra CSV formula injection em dados textuais públicos;
-- export determinístico e sem novas chamadas a providers ou sites externos;
-- testes de conteúdo, determinismo, endpoint e segurança do CSV;
-- documentação em `docs/EXPORT.md`.
+- CSV e JSON de Discovery Runs persistidos;
+- contrato `discovery-export-v1`;
+- proteção contra CSV formula injection;
+- export determinístico e sem novas chamadas de rede.
 
 ### v0.3.5 — Validação end-to-end do MVP — concluída
 
-- gate reproduzível com quatro empresas públicas reais, em dois nichos/cidades;
-- 4/4 sites auditados ao vivo na execução final;
-- 0 falhas de auditoria nessa amostra;
-- OpportunityAssessment criado para todos os sites auditados;
-- ranking, deduplicação e exports CSV/JSON verificados de ponta a ponta;
-- revisão manual dos candidatos priorizados;
-- falso positivo em títulos longos detectado, corrigido e coberto por teste de regressão;
-- query Overpass reduzida e erros externos mais observáveis;
-- limitação do Overpass em runners cloud documentada;
-- workflow de validação ao vivo mantido manual-only para não tornar a CI normal dependente de terceiros;
-- detalhes em `docs/MVP_VALIDATION.md`.
+- quatro empresas públicas reais em dois grupos;
+- 4/4 sites auditados na execução final;
+- ranking, deduplicação e exports validados;
+- falso positivo de título longo corrigido;
+- limitação do Overpass em runners cloud documentada.
 
-A validação confirma o pipeline após a entrada normalizada de empresas e o fetch real dos sites. Ela **não confirma cobertura ou disponibilidade de produção do provider Overpass**.
+Detalhes em `docs/MVP_VALIDATION.md`.
 
-### v0.3.6 — Discovery Provider hardening — próximo passo
+### v0.3.6 — Discovery Provider hardening — integração implementada
 
-Antes de abrir a Fase 2, fortalecer a parte do produto que realmente encontra empresas:
+Objetivo: retirar o Overpass da posição de única fonte real e preservar a arquitetura substituível de providers.
 
-- definir critérios de provider de produção: cobertura, latência, custo, termos de uso, proveniência e estabilidade;
-- avaliar fontes/API permitidas sem acoplar o Discovery Engine ao fornecedor;
-- manter o provider mock para testes determinísticos;
-- manter Overpass como provider experimental enquanto sua disponibilidade não for adequada ao uso pretendido;
-- implementar somente um provider adicional quando houver uma escolha justificada;
-- testar pequenas buscas reais em mais de um nicho/cidade;
-- medir quantidade retornada, cobertura de website/contato comercial e falhas;
-- documentar custo e limitações da fonte escolhida.
+Implementado:
 
-Não adicionar FreelancerProfile, preço, chat ou novos módulos de serviço durante esse milestone.
+- Google Places API (New) / Text Search como segundo provider;
+- FieldMask explícita e limitada aos dados necessários;
+- `pageSize` limitado a 20 por chamada;
+- API key somente por configuração/ambiente;
+- timeout e erros externos classificados;
+- payload persistido minimizado;
+- provider `auto`: Google Places quando há chave, Overpass como fallback experimental;
+- provider mock preservado para testes determinísticos;
+- Overpass explicitamente mantido como experimental;
+- testes do Google Places via `httpx.MockTransport`, sem segredo real;
+- documentação de custo, proveniência e limitações em `docs/DISCOVERY_PROVIDERS.md`;
+- CI automática removida de pushes de feature branch para reduzir ruído de notificações; PR/main continuam como gates automáticos.
+
+Pendente para fechar a validação real do provider Google:
+
+- configurar uma API key habilitada fora do repositório;
+- rodar pequenas buscas reais em pelo menos dois nichos/cidades;
+- medir latência, quantidade retornada, cobertura de website/telefone e falhas;
+- registrar custo observado e comparar qualidade com o fallback.
+
+Nenhuma credencial deve ser commitada no repositório ou colada em documentação.
+
+### Próximo gate — validação live do Google Places
+
+Depois que a credencial estiver disponível via ambiente/secret:
+
+```text
+Google Places real
+→ 2–3 buscas pequenas
+→ cobertura de website/telefone
+→ latência/falhas
+→ Site Analyzer
+→ OpportunityAssessment
+→ export
+```
+
+Esse gate deve ser pequeno e controlado. Não adicionar FreelancerProfile, preço, chat ou novos módulos durante a validação.
 
 ### v1.0 — Opportunity Intelligence MVP útil
 
@@ -166,14 +161,12 @@ O chat não substitui fontes, regras e assessments por invenção do modelo.
 
 - templates por categoria/segmento;
 - primeira implementação para web development;
-- dados públicos da empresa apenas quando apropriados;
-- dados de clientes sempre fictícios;
 - revisão manual;
 - link temporário claramente marcado como demonstração não oficial.
 
 ## Fase 5 — Generalização
 
-Adicionar módulos reais, um por vez, quando houver critérios e dados suficientes:
+Adicionar módulos reais, um por vez:
 
 - SEO;
 - design;
@@ -185,15 +178,7 @@ Adicionar módulos reais, um por vez, quando houver critérios e dados suficient
 - análise de dados;
 - suporte de TI.
 
-Cada módulo poderá ter seus próprios:
-
-- sinais;
-- regras de findings;
-- scoring;
-- requisitos de compatibilidade;
-- catálogo de serviços;
-- inputs de precificação;
-- tipo de demonstração.
+Cada módulo poderá ter seus próprios sinais, findings, scoring, compatibilidade, catálogo de serviços, inputs de preço e tipo de demonstração.
 
 Discovery, Prospect, Evidence e OpportunityAssessment permanecem infraestrutura compartilhada.
 
