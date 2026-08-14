@@ -9,7 +9,7 @@ from app.services.opportunity.contracts import (
     OpportunityFinding,
 )
 
-WEB_OPPORTUNITY_VERSION = "web-development-v1"
+WEB_OPPORTUNITY_VERSION = "web-development-v2"
 
 
 @dataclass(frozen=True)
@@ -23,57 +23,105 @@ class GapRule:
 RULES: tuple[GapRule, ...] = (
     GapRule(
         "public_http_ok",
-        12,
+        8,
         "Site com problema de disponibilidade",
         "A página principal não respondeu com sucesso durante a análise.",
     ),
     GapRule(
-        "indexable",
-        14,
-        "Site com bloqueio de indexação",
-        "A página analisada não está elegível para indexação.",
+        "https_enabled",
+        8,
+        "Página principal sem HTTPS",
+        "A URL final analisada não utiliza HTTPS.",
+    ),
+    GapRule(
+        "mobile_viewport_present",
+        10,
+        "Viewport mobile não identificado",
+        "A página analisada não declara viewport com largura adaptada ao dispositivo.",
+    ),
+    GapRule(
+        "lead_capture_path_present",
+        9,
+        "Caminho de contato ou captação não identificado",
+        "Não foi encontrado formulário nem canal de contato acionável na página analisada.",
+    ),
+    GapRule(
+        "action_cta_present",
+        7,
+        "Chamada para ação não identificada",
+        "Não foi identificado link ou botão com uma ação comercial clara na página.",
     ),
     GapRule(
         "important_content_textual",
-        14,
+        7,
         "Conteúdo principal pouco acessível em texto",
         "Informações importantes parecem insuficientes no HTML textual analisado.",
     ),
     GapRule(
         "business_identity_clear",
-        12,
+        6,
         "Identidade do negócio pouco clara",
         "O site não deixa nome e identidade do negócio claros pelos sinais atuais.",
     ),
     GapRule(
         "services_clearly_described",
-        16,
+        9,
         "Serviços pouco descritos",
         "Os serviços não aparecem descritos de forma explícita pelos sinais atuais.",
     ),
     GapRule(
         "location_clearly_described",
-        10,
+        4,
         "Localização pouco clara",
         "Endereço ou região atendida não ficaram claros na página analisada.",
     ),
     GapRule(
         "descriptive_titles",
-        8,
+        4,
         "Título de página pouco descritivo",
         "O título atual oferece pouco contexto sobre a página ou o negócio.",
     ),
     GapRule(
+        "meta_description_present",
+        4,
+        "Meta description não identificada",
+        "A página analisada não possui uma meta description explícita.",
+    ),
+    GapRule(
+        "canonical_present",
+        3,
+        "URL canônica não identificada",
+        "A página analisada não declara uma URL canônica explícita.",
+    ),
+    GapRule(
+        "heading_structure_basic",
+        5,
+        "Hierarquia básica de headings inconsistente",
+        "A página não apresenta uma estrutura básica de headings com um único H1 e níveis coerentes.",
+    ),
+    GapRule(
+        "images_alt_attributes_complete",
+        3,
+        "Imagens sem atributo alt",
+        "Ao menos uma imagem da página analisada não possui atributo alt.",
+    ),
+    GapRule(
         "structured_data_present",
-        6,
+        2,
         "Dados estruturados ausentes",
         "Nenhum JSON-LD útil foi identificado na página analisada.",
     ),
     GapRule(
         "local_business_schema",
-        8,
+        2,
         "Marcação de negócio local ausente",
         "Não foi identificada marcação estruturada apropriada de negócio local.",
+    ),
+    GapRule(
+        "indexable",
+        9,
+        "Site com bloqueio de indexação",
+        "A página analisada não está elegível para indexação.",
     ),
 )
 
