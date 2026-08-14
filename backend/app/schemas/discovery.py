@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.opportunity import OpportunityAssessmentOut
+
 
 class DiscoveryRunRequest(BaseModel):
     niche: str = Field(min_length=2, max_length=160)
@@ -30,12 +32,13 @@ class DiscoveryCandidateOut(BaseModel):
     phone: str | None
     source_url: str | None
     source_category: str | None
-    automation_score: int
-    automation_confidence: float
-    ai_discoverability_score: int | None
-    ai_discoverability_confidence: float | None
+    opportunity: OpportunityAssessmentOut | None
     priority_bucket: str
     site_audit_id: int | None
+    ai_discoverability_score: int | None
+    ai_discoverability_confidence: float | None
+    automation_score: int
+    automation_confidence: float
 
 
 class DiscoveryRunOut(BaseModel):
