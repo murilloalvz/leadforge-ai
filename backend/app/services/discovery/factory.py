@@ -32,19 +32,31 @@ MOCK_BUSINESSES = (
 )
 
 
-def build_discovery_provider(name: str) -> DiscoveryProvider:
+def _google_places_provider() -> GooglePlacesProvider:
     settings = get_settings()
+    return GooglePlacesProvider(
+        api_key=settings.google_places_api_key,
+        endpoint=settings.google_places_endpoint,
+        timeout_seconds=settings.google_places_timeout_seconds,
+    )
+
+
+def _overpass_provider() -> OpenStreetMapOverpassProvider:
+    settings = get_settings()
+    return OpenStreetMapOverpassProvider(
+        endpoint=settings.overpass_endpoint,
+        timeout_seconds=settings.overpass_timeout_seconds,
+    )
+
+
+def build_discovery_provider(name: str) -> DiscoveryProvider:
+    if name == "auto":
+        settings = get_settings()
+        return _google_places_provider() if settings.google_places_api_key else _overpass_provider()
     if name == "google_places":
-        return GooglePlacesProvider(
-            api_key=settings.google_places_api_key,
-            endpoint=settings.google_places_endpoint,
-            timeout_seconds=settings.google_places_timeout_seconds,
-        )
+        return _google_places_provider()
     if name == "openstreetmap":
-        return OpenStreetMapOverpassProvider(
-            endpoint=settings.overpass_endpoint,
-            timeout_seconds=settings.overpass_timeout_seconds,
-        )
+        return _overpass_provider()
     if name == "mock":
         return MockDiscoveryProvider(MOCK_BUSINESSES)
     raise ValueError(f"Provider de discovery não suportado: {name}")
