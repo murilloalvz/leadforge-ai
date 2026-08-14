@@ -1,5 +1,5 @@
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
