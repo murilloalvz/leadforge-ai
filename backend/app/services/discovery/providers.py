@@ -69,6 +69,13 @@ def _first(tags: dict[str, Any], *keys: str) -> str | None:
     return None
 
 
+def _state(tags: dict[str, Any], fallback: str) -> str:
+    value = _first(tags, "addr:state")
+    if value and len(value.strip()) == 2:
+        return value.strip().upper()
+    return fallback.upper()
+
+
 def _category(tags: dict[str, Any]) -> str | None:
     values = [
         _first(tags, "shop"),
@@ -80,7 +87,11 @@ def _category(tags: dict[str, Any]) -> str | None:
     return ", ".join(compact) or None
 
 
-def _public_payload(element_type: str, element_id: str, tags: dict[str, Any]) -> dict[str, Any]:
+def _public_payload(
+    element_type: str,
+    element_id: str,
+    tags: dict[str, Any],
+) -> dict[str, Any]:
     allowed = {
         "name",
         "brand",
@@ -146,8 +157,9 @@ class OpenStreetMapOverpassProvider:
         )
 
     def discover(self, query: DiscoveryQuery) -> tuple[DiscoveredBusiness, ...]:
+        overpass_query = _query_body(query)
         try:
-            response = self.client.post(self.endpoint, data={"data": _query_body(query)})
+            response = self.client.post(self.endpoint, data={"data": overpass_query})
             response.raise_for_status()
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -190,7 +202,7 @@ class OpenStreetMapOverpassProvider:
                     name=name,
                     category=_category(tags),
                     city=_first(tags, "addr:city") or query.city,
-                    state=_first(tags, "addr:state") or query.state,
+                    state=_state(tags, query.state),
                     website=website,
                     phone=phone,
                     whatsapp=whatsapp,
