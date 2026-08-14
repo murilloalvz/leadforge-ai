@@ -8,6 +8,7 @@ LeadForge é um copiloto comercial para freelancers. A arquitetura deve separar:
 - coleta de evidências;
 - análise técnica;
 - avaliação de oportunidade por categoria de serviço;
+- persistência e export dos resultados;
 - futuras etapas de compatibilidade, preço e venda assistida.
 
 Nenhuma categoria específica deve ser o núcleo do sistema.
@@ -32,9 +33,13 @@ Opportunity Module
 OpportunityAssessment
       ↓
 ranking da execução
+      ↓
+DiscoveryRun persistido
+      ↓
+CSV / JSON export
 ```
 
-Na v0.3.1 existe apenas o módulo `web_development`.
+Na v0.3.4 existe apenas o módulo de oportunidade `web_development`.
 
 ## Núcleo compartilhado
 
@@ -140,7 +145,7 @@ Os módulos devem distinguir:
 - `inference` — interpretação plausível;
 - `unknown` — evidência insuficiente.
 
-Na v0.3.1 o módulo web usa apenas `confirmed` e `unknown`.
+No MVP atual o módulo web trabalha principalmente com `confirmed` e `unknown`.
 
 Isso é intencional: não há necessidade de inferências antes de o núcleo objetivo estar validado.
 
@@ -148,9 +153,39 @@ Isso é intencional: não há necessidade de inferências antes de o núcleo obj
 
 É o primeiro módulo de oportunidade do MVP, não o produto inteiro.
 
-Ele reaproveita os sinais já existentes do Site Analyzer e mede gaps objetivos relacionados ao site.
+Ele reaproveita os sinais do Site Analyzer e mede gaps objetivos relacionados ao site.
 
-A versão inicial não afirma responsividade, performance ou Core Web Vitals porque ainda não existe coleta suficiente para sustentar essas conclusões.
+A versão atual não afirma responsividade real, performance ou Core Web Vitals porque ainda não existe coleta suficiente para sustentar essas conclusões.
+
+## Export de Discovery Runs
+
+O export é uma camada de leitura sobre resultados persistidos.
+
+Ele não deve ter efeitos colaterais nem alterar a conclusão original do run.
+
+```text
+DiscoveryRun persistido
+        ↓
+Discovery Exporter
+   ├── CSV
+   └── JSON
+```
+
+Regras arquiteturais:
+
+- não reexecutar providers durante export;
+- não refazer Site Audit;
+- não recalcular OpportunityAssessment;
+- ordenar candidatos pelo `rank` persistido;
+- preservar findings, certainty e evidências relevantes;
+- manter AI Discoverability separado do Opportunity Score;
+- versionar o contrato público JSON;
+- proteger células CSV contra formula injection;
+- não ressuscitar campos legados de automação como contrato principal.
+
+O contrato atual é `discovery-export-v1`.
+
+Detalhes em [`EXPORT.md`](EXPORT.md).
 
 ## AI Discoverability
 
@@ -234,15 +269,19 @@ Qualquer fetch server-side controlado por URL do usuário deve:
 - limitar redirects e tamanho da resposta;
 - não executar JavaScript arbitrário no milestone atual.
 
+Exports CSV também devem tratar texto externo como dado, nunca como fórmula executável.
+
 ## Ordem de desenvolvimento
 
 1. Preservar Discovery + Evidence + Site Analyzer.
 2. Validar `OpportunityModule` com `web_development`.
 3. Expandir evidências objetivas do site.
-4. Calibrar e exportar oportunidades reais.
-5. Só então introduzir FreelancerProfile e Compatibility.
-6. Pricing, outreach e proposta vêm depois.
-7. Chat vem quando houver dados estruturados suficientes para ser uma boa interface.
-8. Novas categorias entram uma por vez.
+4. Calibrar oportunidades reais.
+5. Exportar resultados persistidos de forma segura e determinística.
+6. Validar o fluxo end-to-end em uso real controlado.
+7. Só então introduzir FreelancerProfile e Compatibility.
+8. Pricing, outreach e proposta vêm depois.
+9. Chat vem quando houver dados estruturados suficientes para ser uma boa interface.
+10. Novas categorias entram uma por vez.
 
 Veja [`PRODUCT_VISION.md`](PRODUCT_VISION.md) e [`ROADMAP.md`](ROADMAP.md).
