@@ -1,6 +1,8 @@
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryProvider
-from app.services.discovery.providers import MockDiscoveryProvider, OpenStreetMapOverpassProvider
-
+from app.services.discovery.providers import (
+    MockDiscoveryProvider,
+    OpenStreetMapOverpassProvider,
+)
 
 MOCK_BUSINESSES = (
     DiscoveredBusiness(
