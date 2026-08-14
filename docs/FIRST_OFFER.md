@@ -1,40 +1,31 @@
-# Primeira oferta a validar
+# Primeira oferta — documento histórico
 
-## Nicho inicial
+> **Status:** legado / referência histórica.
 
-Clínicas de estética e negócios locais de estética.
+Este documento registra a primeira hipótese comercial do LeadForge, quando o projeto estava focado em automação para clínicas de estética.
 
-## Problema escolhido
+A visão canônica mudou: LeadForge agora é um **copiloto comercial para freelancers de diferentes áreas**. Automação é apenas uma possível categoria futura de serviço.
 
-Leads entram principalmente por WhatsApp, redes sociais e formulários, mas podem ficar espalhados, sem classificação e sem acompanhamento consistente.
+O roadmap atual está em [`ROADMAP.md`](ROADMAP.md) e a visão do produto em [`PRODUCT_VISION.md`](PRODUCT_VISION.md).
 
-## Automação inicial
+## Hipótese original
 
-**Qualificação + follow-up de leads**
+Nicho: clínicas de estética e negócios locais de estética.
 
-Fluxo proposto:
+Oferta: automação de qualificação + follow-up de leads.
+
+Fluxo conceitual:
 
 1. novo lead entra;
 2. registra origem e serviço de interesse;
-3. coleta informações mínimas de qualificação;
+3. coleta informações mínimas;
 4. classifica o lead;
 5. cria/atualiza registro no CRM;
 6. sinaliza leads quentes;
-7. cria tarefas de follow-up quando não houver retorno.
+7. cria tarefas de follow-up.
 
-A automação não deve prometer aumento de receita antes de haver dados reais do cliente.
+Essa hipótese não é o foco do MVP atual e não deve orientar novas decisões arquiteturais.
 
-## Demo comercial
+## Regra preservada
 
-A primeira demo será um template reutilizável personalizado com o nome da empresa e serviços públicos observados, mas todos os leads e métricas serão fictícios.
-
-Tela principal prevista:
-
-- novos leads;
-- qualificados;
-- aguardando retorno;
-- agendamentos;
-- fila de follow-up;
-- exemplos fictícios de leads.
-
-Marca obrigatória: **DEMO — dados fictícios**.
+Se uma demo de automação for retomada no futuro, dados de clientes/leads deverão continuar fictícios e claramente identificados como demonstração não oficial.
