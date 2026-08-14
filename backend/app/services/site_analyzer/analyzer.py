@@ -327,7 +327,7 @@ class SiteAnalyzer:
             "interactive_texts": list(page.interactive_texts[:20]),
             "image_count": page.image_count,
             "images_with_alt_attribute": page.images_with_alt_attribute,
-            "meta_robots_header": response.headers.get("x-robots-tag"),
+            "x_robots_tag": response.headers.get("x-robots-tag"),
             "structured_data_documents": page.structured_data_documents,
             "structured_types": list(page.structured_types),
             "structured_names": list(page.structured_names),
@@ -395,4 +395,7 @@ def _contains_any(haystack: str, terms: tuple[str, ...]) -> bool:
 def _heading_structure_basic(levels: tuple[int, ...]) -> bool:
     if not levels or levels.count(1) != 1 or levels[0] != 1:
         return False
-    return all(current <= previous + 1 for previous, current in zip(levels, levels[1:]))
+    return all(
+        current <= previous + 1
+        for previous, current in zip(levels, levels[1:], strict=False)
+    )
