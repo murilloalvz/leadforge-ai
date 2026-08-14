@@ -4,25 +4,24 @@ O LeadForge é um **copiloto comercial para freelancers**.
 
 > O freelancer informa o que sabe fazer, e o LeadForge encontra empresas que podem precisar dessas habilidades, explica por que cada empresa é uma oportunidade e ajuda a preparar a abordagem comercial.
 
-O produto não é exclusivo para desenvolvimento web. `web_development` é apenas o primeiro módulo validado do MVP. A visão completa está em `docs/PRODUCT_VISION.md` e o roadmap em `docs/ROADMAP.md`.
+O produto não é exclusivo para desenvolvimento web. `web_development` é apenas o primeiro módulo validado do MVP. Veja `docs/PRODUCT_VISION.md` e `docs/ROADMAP.md`.
 
 ## Estado atual — v0.3.6
 
-A base atual inclui:
+A base inclui:
 
 - FastAPI, SQLAlchemy, SQLite e Alembic;
 - Prospect e Evidence com provenance/confiança;
 - Discovery Engine por nicho + cidade + UF;
 - providers substituíveis;
-- provider `mock` determinístico;
-- provider Google Places API (New);
-- provider OpenStreetMap/Overpass mantido como experimental;
-- seleção `provider="auto"`;
+- `mock` determinístico;
+- Geoapify como provider persistente preferido quando configurado;
+- OpenStreetMap/Overpass como fallback experimental;
+- `provider="auto"`;
 - deduplicação e reutilização de prospects;
-- Site Analyzer por URL com proteções SSRF de MVP;
-- AI Discoverability como diagnóstico separado;
-- contrato genérico de OpportunityModule;
-- OpportunityAssessment persistido;
+- Site Analyzer com proteções SSRF de MVP;
+- AI Discoverability separado;
+- OpportunityAssessment genérico;
 - módulo `web_development` / `web-development-v2`;
 - calibração com sites públicos reais;
 - export CSV/JSON determinístico;
@@ -31,36 +30,14 @@ A base atual inclui:
 
 Ainda não existem FreelancerProfile, Compatibility Engine, pricing, chat com IA, outreach, proposta ou demo.
 
-## Arquitetura
-
-```text
-Discovery Providers
-        ↓
-     Prospect
-        ↓
-     Evidence
-        ↓
- Site Analyzer / outras fontes
-        ↓
-Opportunity Modules
-        ↓
-OpportunityAssessment
-        ↓
-priorização
-        ↓
-   CSV / JSON
-```
-
 ## Discovery Providers
 
 A API aceita:
 
-- `auto` — default; usa Google Places quando uma chave está configurada, senão cai no Overpass experimental;
-- `google_places` — Google Places API (New) / Text Search;
+- `auto` — usa Geoapify quando uma chave existe; sem chave, usa Overpass experimental;
+- `geoapify` — discovery persistente baseado principalmente em dados OpenStreetMap;
 - `openstreetmap` — Overpass experimental;
 - `mock` — dados fictícios para testes.
-
-Exemplo:
 
 ```http
 POST /discovery-runs
@@ -77,71 +54,38 @@ Content-Type: application/json
 }
 ```
 
-### Google Places
-
-Configuração:
+### Geoapify
 
 ```env
-LEADFORGE_GOOGLE_PLACES_API_KEY=
-LEADFORGE_GOOGLE_PLACES_ENDPOINT=https://places.googleapis.com/v1/places:searchText
-LEADFORGE_GOOGLE_PLACES_TIMEOUT_SECONDS=12
+LEADFORGE_GEOAPIFY_API_KEY=
+LEADFORGE_GEOAPIFY_SEARCH_ENDPOINT=https://api.geoapify.com/v1/geocode/search
+LEADFORGE_GEOAPIFY_DETAILS_ENDPOINT=https://api.geoapify.com/v2/place-details
+LEADFORGE_GEOAPIFY_TIMEOUT_SECONDS=12
 ```
 
-A chave nunca possui valor default e não deve ser commitada.
+A chave não possui valor default e nunca deve ser commitada.
 
-O provider usa FieldMask explícita e pede apenas ID, nome, endereço, tipo primário, website, telefone comercial e URL do Google Maps. Não pede reviews, fotos, rating, horários ou dados de atmosfera.
+O provider faz uma busca textual de amenities limitada a 20 candidatos e usa Place Details para website/telefone quando disponíveis. Persiste apenas os campos usados pelo LeadForge e provenance reduzida.
 
-O `pageSize` é limitado a 20 por chamada. A cobrança do Google depende dos campos solicitados; `websiteUri` e telefone elevam o SKU, portanto qualquer expansão da FieldMask deve ser tratada como decisão de produto/custo.
+Geoapify foi escolhido no lugar do Google Places para o caminho persistente porque o produto precisa armazenar prospects e exports. A política do Google Places restringe armazenamento/caching de conteúdo além das exceções permitidas, enquanto Geoapify documenta armazenamento/redistribuição de resultados com as atribuições exigidas.
 
-Mais detalhes em `docs/DISCOVERY_PROVIDERS.md`.
+OpenStreetMap attribution deve ser preservada; no plano gratuito do Geoapify, attribution ao Geoapify também é exigida. Veja `docs/DISCOVERY_PROVIDERS.md`.
 
 ### OpenStreetMap/Overpass
 
-O provider continua disponível para experimentação e fallback sem credencial. Ele não é tratado como infraestrutura de produção. Na v0.3.5 houve 502/timeouts em runners cloud; sua disponibilidade não faz parte da CI normal.
+Continua disponível sem credencial, mas não é tratado como infraestrutura de produção. A v0.3.5 observou 502/timeouts em runners cloud, portanto sua disponibilidade não faz parte da CI normal.
 
 ## Opportunity Intelligence
 
 O primeiro módulo ativo é `web_development`.
 
-O Site Analyzer observa sinais como:
+O Site Analyzer observa sinais objetivos como HTTPS, viewport, formulário, links de WhatsApp/telefone, CTA, identidade, serviços, localização, meta description, canonical, headings, imagens e redirects.
 
-- HTTPS;
-- viewport mobile;
-- formulário;
-- links de WhatsApp e telefone;
-- caminho de contato/captação;
-- CTA;
-- identidade, serviços e localização;
-- meta description;
-- canonical;
-- headings;
-- cobertura de `alt` em imagens;
-- redirects.
-
-O LeadForge diferencia:
-
-- `confirmed`;
-- `strong_signal`;
-- `inference`;
-- `unknown`.
-
-Ausência de evidência não vira evidência de ausência.
-
-## Diagnósticos separados
-
-### Web Development Opportunity
-
-Responde se existem problemas observáveis no site que tornam a empresa uma oportunidade plausível para desenvolvimento web.
-
-### AI Discoverability
-
-Responde se o site possui sinais observáveis de prontidão para busca/experiências de IA.
-
-Os scores permanecem separados.
+Findings distinguem `confirmed`, `strong_signal`, `inference` e `unknown`. Ausência de evidência não vira evidência de ausência.
 
 ## Export
 
-Um Discovery Run persistido pode ser exportado sem repetir a busca ou o Site Analyzer:
+Runs persistidos podem ser exportados sem repetir discovery/análise:
 
 ```http
 GET /discovery-runs/1/export?format=csv
@@ -152,16 +96,9 @@ O JSON usa `discovery-export-v1`; o CSV possui proteção contra formula injecti
 
 ## Notificações e CI
 
-A partir da v0.3.6, a CI automática roda em:
-
-- pull requests;
-- pushes na `main`.
-
-Feature branches não disparam CI em todo commit. O workflow continua disponível via `workflow_dispatch` para execução manual. Isso reduz ruído de notificações durante desenvolvimento sem remover o gate de integração.
+A partir da v0.3.6, a CI automática roda em pull requests e pushes na `main`. Feature branches não disparam CI em todo commit; execução manual continua disponível por `workflow_dispatch`. Isso reduz ruído de notificações sem remover o gate de integração.
 
 ## Rodando localmente
-
-Requisitos: Python 3.12+.
 
 ```bash
 git clone https://github.com/murilloalvz/leadforge-ai.git
@@ -173,23 +110,14 @@ python -m app.db.seed
 uvicorn app.main:app --reload
 ```
 
-Testes:
-
 ```bash
 ruff check .
 pytest -q
 ```
 
-## Próximo gate
+## Gate restante da v0.3.6
 
-A integração Google Places está implementada e pode ser testada deterministicamente sem segredo. Para fechar a validação real da v0.3.6 falta configurar a API key fora do repositório e executar 2–3 buscas pequenas, medindo:
-
-- latência;
-- número de empresas retornadas;
-- cobertura de website;
-- cobertura de telefone comercial;
-- falhas;
-- funcionamento do pipeline Site Analyzer → OpportunityAssessment → export.
+A integração Geoapify é testável deterministicamente sem segredo. Para validar o provider real ainda falta configurar a chave fora do repo e executar 2–3 buscas pequenas, medindo latência, volume retornado, cobertura de website/telefone e falhas.
 
 Somente depois desse gate o roadmap deve avançar para FreelancerProfile e Compatibility Engine.
 
