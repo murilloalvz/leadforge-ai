@@ -80,6 +80,33 @@ def _category(tags: dict[str, Any]) -> str | None:
     return ", ".join(compact) or None
 
 
+def _public_payload(element_type: str, element_id: str, tags: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "name",
+        "brand",
+        "operator",
+        "shop",
+        "beauty",
+        "healthcare",
+        "amenity",
+        "website",
+        "contact:website",
+        "url",
+        "phone",
+        "contact:phone",
+        "whatsapp",
+        "contact:whatsapp",
+        "addr:city",
+        "addr:state",
+    }
+    selected_tags = {key: value for key, value in tags.items() if key in allowed}
+    return {
+        "element_type": element_type,
+        "element_id": element_id,
+        "tags": selected_tags,
+    }
+
+
 @dataclass
 class MockDiscoveryProvider:
     businesses: tuple[DiscoveredBusiness, ...]
@@ -168,11 +195,7 @@ class OpenStreetMapOverpassProvider:
                     phone=phone,
                     whatsapp=whatsapp,
                     source_url=source_url,
-                    raw={
-                        "element_type": element_type,
-                        "element_id": element_id,
-                        "tags": tags,
-                    },
+                    raw=_public_payload(element_type, element_id, tags),
                 )
             )
             if len(businesses) >= query.limit:
