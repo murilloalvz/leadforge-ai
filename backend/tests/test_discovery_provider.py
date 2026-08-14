@@ -1,4 +1,3 @@
-import json
 from urllib.parse import parse_qs
 
 import httpx
@@ -7,75 +6,91 @@ import pytest
 from app.services.discovery.contracts import DiscoveryQuery
 from app.services.discovery.providers import (
     DiscoveryProviderError,
-    GooglePlacesProvider,
+    GeoapifyProvider,
     OpenStreetMapOverpassProvider,
 )
 
 
-def test_google_places_provider_uses_bounded_field_mask_and_maps_business() -> None:
+def test_geoapify_provider_searches_amenities_and_enriches_business() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["x-goog-api-key"] == "test-key"
-        field_mask = request.headers["x-goog-fieldmask"]
-        assert "places.websiteUri" in field_mask
-        assert "places.nationalPhoneNumber" in field_mask
-        assert "places.reviews" not in field_mask
-        payload = json.loads(request.read().decode())
-        assert payload["pageSize"] == 5
-        assert payload["textQuery"] == "clínicas de estética em Campinas, SP, Brasil"
-        assert payload["languageCode"] == "pt-BR"
-        assert payload["regionCode"] == "BR"
+        params = dict(request.url.params)
+        if request.url.path.endswith("/geocode/search"):
+            assert params["apiKey"] == "test-key"
+            assert params["text"] == "clínicas de estética, Campinas, SP, Brasil"
+            assert params["type"] == "amenity"
+            assert params["filter"] == "countrycode:br"
+            assert params["limit"] == "5"
+            return httpx.Response(
+                200,
+                request=request,
+                json={
+                    "results": [
+                        {
+                            "place_id": "geo-123",
+                            "name": "Clínica Exemplo",
+                            "city": "Campinas",
+                            "formatted": "Rua Exemplo, Campinas - SP, Brasil",
+                            "categories": ["commercial.health_and_beauty"],
+                        }
+                    ]
+                },
+            )
+        assert request.url.path.endswith("/place-details")
+        assert params["id"] == "geo-123"
+        assert params["features"] == "details"
         return httpx.Response(
             200,
             request=request,
             json={
-                "places": [
+                "features": [
                     {
-                        "id": "ChIJ123",
-                        "displayName": {"text": "Clínica Exemplo"},
-                        "formattedAddress": "Rua Exemplo, Campinas - SP, Brasil",
-                        "primaryType": "beauty_salon",
-                        "websiteUri": "https://clinic.example",
-                        "nationalPhoneNumber": "(19) 3000-0000",
-                        "googleMapsUri": "https://maps.google.com/?cid=123",
+                        "properties": {
+                            "feature_type": "details",
+                            "website": "https://clinic.example",
+                            "contact": {"phone": "+55 19 3000-0000"},
+                        }
                     }
                 ]
             },
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
-    provider = GooglePlacesProvider(api_key="test-key", client=client)
+    provider = GeoapifyProvider(api_key="test-key", client=client)
     businesses = provider.discover(
         DiscoveryQuery(niche="clínicas de estética", city="Campinas", state="SP", limit=5)
     )
 
     assert len(businesses) == 1
     business = businesses[0]
-    assert business.external_id == "google/ChIJ123"
+    assert business.external_id == "geoapify/geo-123"
     assert business.name == "Clínica Exemplo"
     assert business.website == "https://clinic.example"
-    assert business.phone == "(19) 3000-0000"
-    assert business.category == "beauty_salon"
-    assert business.source_url == "https://maps.google.com/?cid=123"
+    assert business.phone == "+55 19 3000-0000"
+    assert business.category == "commercial.health_and_beauty"
     assert business.raw == {
-        "place_id": "ChIJ123",
+        "place_id": "geo-123",
         "formatted_address": "Rua Exemplo, Campinas - SP, Brasil",
-        "primary_type": "beauty_salon",
+        "categories": ["commercial.health_and_beauty"],
+        "data_source": "openstreetmap",
     }
 
 
-def test_google_places_provider_requires_api_key() -> None:
-    with pytest.raises(ValueError, match="LEADFORGE_GOOGLE_PLACES_API_KEY"):
-        GooglePlacesProvider(api_key="")
+def test_geoapify_provider_requires_api_key() -> None:
+    with pytest.raises(ValueError, match="LEADFORGE_GEOAPIFY_API_KEY"):
+        GeoapifyProvider(api_key="")
 
 
-def test_google_places_provider_reports_safe_http_status() -> None:
+def test_geoapify_provider_reports_safe_http_status() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429, request=request)
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
-    provider = GooglePlacesProvider(api_key="test-key", client=client)
+    provider = GeoapifyProvider(api_key="test-key", client=client)
 
-    with pytest.raises(DiscoveryProviderError, match="Google Places respondeu HTTP 429"):
+    with pytest.raises(
+        DiscoveryProviderError,
+        match="Geoapify respondeu HTTP 429 em geocode-search",
+    ):
         provider.discover(
             DiscoveryQuery(niche="barbearia", city="Campinas", state="SP", limit=5)
         )
