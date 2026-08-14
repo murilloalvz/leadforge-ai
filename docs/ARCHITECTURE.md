@@ -1,218 +1,248 @@
 # LeadForge AI — Arquitetura
 
-## Objetivo
+## Objetivo arquitetural
 
-O LeadForge transforma sinais públicos de empresas em dois diagnósticos independentes:
+LeadForge é um copiloto comercial para freelancers. A arquitetura deve separar:
 
-1. **Automation Opportunity** — ajuda a priorizar empresas para uma oferta de automação;
-2. **AI Discoverability** — avalia se o site está tecnicamente e semanticamente preparado para descoberta por busca e experiências de IA.
+- descoberta de empresas;
+- coleta de evidências;
+- análise técnica;
+- avaliação de oportunidade por categoria de serviço;
+- futuras etapas de compatibilidade, preço e venda assistida.
 
-Os dois usam parte da mesma coleta de evidências, mas não compartilham um score único.
+Nenhuma categoria específica deve ser o núcleo do sistema.
 
-## Fluxo principal
+## Fluxo atual
 
 ```text
 Discovery Provider
       ↓
 normalização + deduplicação
       ↓
-evidências / enrichment
-      ├───────────────────────┐
-      ↓                       ↓
-Automation Opportunity    AI Discoverability
-      ↓                       ↓
-AI opportunity analyst    recomendações do site
+Prospect
       ↓
-solution recommendation
+Evidence
       ↓
-offer + demo
+Site Analyzer
+      ├──────────────→ AI Discoverability
+      │
       ↓
-human review
+Opportunity Module
       ↓
-CRM
+OpportunityAssessment
+      ↓
+ranking da execução
 ```
 
-## Discovery
+Na v0.3.1 existe apenas o módulo `web_development`.
 
-Responsável por encontrar empresas a partir de fontes públicas permitidas. O restante do sistema não deve depender diretamente de um provider específico.
+## Núcleo compartilhado
 
-Na v0.1 existem apenas empresas fictícias. A v0.2 deve introduzir providers reais de forma controlada.
+### Prospect
 
-A identidade básica do prospect usa uma `dedup_key` normalizada. IDs estáveis de providers poderão melhorar essa deduplicação depois.
+Representa a empresa identificada. Não deve carregar a identidade de um tipo de serviço específico.
 
-## Evidence / Enrichment
+Os campos legados `score`, `score_confidence`, `score_version` e `score_explanation` ainda existem por compatibilidade com o antigo Automation Opportunity, mas novos scores de oportunidade devem ser persistidos em `OpportunityAssessment`.
 
-Armazena sinais observáveis com proveniência.
+### Evidence
 
-Exemplos comerciais:
+Representa informação observável com proveniência.
 
-- WhatsApp público;
-- formulário;
-- agendamento visível;
-- catálogo de serviços;
-- automação aparente;
-- atividade pública.
+Quando possível, cada evidência deve preservar:
 
-Exemplos de site:
+- valor;
+- fonte;
+- timestamp;
+- confiança.
 
-- status HTTP;
-- indexabilidade;
-- regras de crawler;
-- conteúdo textual importante;
-- títulos;
-- descrição de serviços/localização;
-- dados estruturados.
+Ausência de evidência não é evidência de ausência.
 
-Um sinal externo deve, quando possível, guardar valor, fonte, timestamp e confiança.
+### Discovery Provider
 
-## Automation Opportunity Scoring
+Encontra negócios em fontes públicas permitidas e devolve um formato normalizado.
 
-O score comercial é determinístico, explicável e versionado.
+O restante do sistema não depende do formato específico de OpenStreetMap, Google Places ou qualquer provider futuro.
 
-O LLM não escolhe a nota canônica.
+### Site Analyzer
 
-Saída conceitual:
+Coleta sinais objetivos de uma URL pública e produz dados reutilizáveis por múltiplos módulos.
 
-```json
-{
-  "total": 78,
-  "confidence": 0.82,
-  "version": "automation-v1.1",
-  "components": [],
-  "explanation": "..."
-}
+AI Discoverability é um consumidor desses sinais, não o único objetivo do Site Analyzer.
+
+## Opportunity Modules
+
+Um `OpportunityModule` responde a uma pergunta específica de categoria:
+
+> As evidências observadas indicam uma oportunidade plausível para este tipo de serviço?
+
+Contrato conceitual:
+
+```text
+OpportunityContext
+    signals
+    evidence
+        ↓
+OpportunityModule
+        ↓
+OpportunityAssessmentResult
+    service_category
+    score
+    confidence
+    version
+    summary
+    recommended_service
+    findings
 ```
 
-`confidence` representa cobertura de evidência, não chance de venda.
+Cada módulo pode ter regras próprias, mas deve produzir a mesma estrutura de saída.
 
-Ausências só pontuam depois de uma checagem explícita.
+Estrutura atual:
+
+```text
+services/
+└── opportunity/
+    ├── contracts.py
+    └── web_development/
+        └── module.py
+```
+
+Novos diretórios só devem ser criados quando um novo módulo for realmente implementado.
+
+## OpportunityAssessment
+
+É a entidade canônica para scores de oportunidade novos.
+
+Ela pode estar ligada a:
+
+- Prospect;
+- DiscoveryRun;
+- SiteAudit;
+- categoria de serviço.
+
+Isso permite que a mesma empresa tenha avaliações independentes no futuro:
+
+```text
+Prospect
+├── web_development assessment
+├── seo assessment
+├── design assessment
+└── automation assessment
+```
+
+Sem colocar vários scores diretamente na tabela `prospects`.
+
+## Findings e certeza
+
+Os módulos devem distinguir:
+
+- `confirmed` — evidência observável confirma o ponto;
+- `strong_signal` — sinal forte sem confirmação direta;
+- `inference` — interpretação plausível;
+- `unknown` — evidência insuficiente.
+
+Na v0.3.1 o módulo web usa apenas `confirmed` e `unknown`.
+
+Isso é intencional: não há necessidade de inferências antes de o núcleo objetivo estar validado.
+
+## Módulo web_development
+
+É o primeiro módulo de oportunidade do MVP, não o produto inteiro.
+
+Ele reaproveita os sinais já existentes do Site Analyzer e mede gaps objetivos relacionados ao site.
+
+A versão inicial não afirma responsividade, performance ou Core Web Vitals porque ainda não existe coleta suficiente para sustentar essas conclusões.
 
 ## AI Discoverability
 
-É um diagnóstico separado do score comercial.
+Continua como diagnóstico independente.
 
-O objetivo não é prever se uma IA vai recomendar a empresa. O objetivo é medir sinais verificáveis que favorecem descoberta e entendimento do site.
+Ele mede readiness para descoberta e entendimento por busca/IA, não oportunidade comercial para um freelancer.
 
-Saída conceitual:
+Uma empresa pode ter:
 
-```json
-{
-  "score": 84,
-  "confidence": 0.91,
-  "version": "ai-discoverability-v1",
-  "components": [],
-  "blockers": []
-}
-```
+- alta oportunidade web e boa discoverability;
+- baixa oportunidade web e baixa discoverability;
+- qualquer outra combinação.
 
-Critérios v1 incluem acessibilidade pública, indexabilidade, acesso de crawlers relevantes, conteúdo textual, clareza de identidade/serviços/localização e dados estruturados coerentes.
+Não misturar os scores.
 
-Bloqueadores técnicos podem limitar a nota mesmo quando o restante do site parece bom.
+## Automation Opportunity legado
 
-Detalhes em [`AI_DISCOVERABILITY.md`](AI_DISCOVERABILITY.md).
+O scorer `automation-v1.1` permanece temporariamente para preservar trabalho anterior e compatibilidade com dados/API existentes.
 
-## AI Opportunity Analyst
+Ele não é mais o modelo canônico de oportunidade nem deve orientar a arquitetura futura.
 
-Milestone futuro.
+Quando automação voltar como categoria de produto, deverá ser adaptada para um `OpportunityModule` próprio em uma fase posterior.
 
-Recebe evidências e o score comercial e retorna estruturas separando:
+## Compatibilidade com freelancer — futuro
 
-- fatos observados;
-- hipóteses;
-- possíveis dores;
-- oportunidades de automação;
-- solução recomendada;
-- informação faltante.
+`OpportunityAssessment` responde se há uma oportunidade de determinado serviço.
 
-A saída do LLM deve ser validada por schema.
+Um futuro `CompatibilityAssessment` responderá outra pergunta:
 
-## Solution Recommender
+> Esta oportunidade combina com este freelancer específico?
 
-Mapeia padrões de oportunidade para soluções reaproveitáveis.
+Não misturar essas duas notas.
 
-Catálogo inicial planejado:
-
-- qualificação de leads;
-- follow-up;
-- funil de agendamento;
-- dashboard de leads.
-
-## Outreach Generator
-
-Milestone futuro. Produz rascunhos sustentados por evidências, mas não envia automaticamente.
-
-Todo outreach começa com revisão humana.
-
-## Demo Generator
-
-Milestone futuro. Monta demos específicas a partir de templates reutilizáveis. Dados de clientes dentro das demos devem ser fictícios e identificados como tal.
-
-## CRM
-
-Pipeline inicial:
+Exemplo futuro:
 
 ```text
-discovered
-→ analyzed
-→ high_priority
-→ offer_generated
-→ demo_ready
-→ ready_for_review
-→ contacted
-→ replied
-→ meeting
-→ proposal
-→ won / lost / do_not_contact
+Web Opportunity: 82/100
+Freelancer Compatibility: 47/100
 ```
 
-## Quality Monitor
+## Pricing — futuro
 
-Produto recorrente futuro para automações implantadas em clientes.
+Preço deverá ser produzido por um motor separado e sustentado por dados com fonte/frescor/confiança.
 
-Poderá acompanhar falhas, leads abandonados, respostas ruins, escalonamentos, resolução, conversão e regressões.
+O LLM poderá explicar preço e escopo, mas não será a fonte canônica do valor.
 
-## Estrutura atual
+## Chat — futuro
+
+O chat será uma interface sobre dados reais persistidos:
 
 ```text
-leadforge-ai/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   └── services/
-│   │       ├── scoring/
-│   │       └── site_readiness/
-│   ├── alembic/
-│   └── tests/
-├── docs/
-├── sample_data/
-├── .github/workflows/
-├── AGENTS.md
-└── README.md
+FreelancerProfile
+Prospect
+Evidence
+OpportunityAssessment
+CompatibilityAssessment
+PricingAssessment
+        ↓
+       LLM
+        ↓
+resposta em linguagem natural
 ```
 
-Só devem existir diretórios úteis para o milestone atual. Evitar arquitetura vazia apenas para parecer grande.
+O modelo não deve inventar dados ausentes.
 
-## Limites de segurança para a v0.2
+## Demos — futuro
 
-Qualquer código que busque URLs deve:
+Demos serão específicas por categoria de serviço e claramente identificadas como conceituais/não oficiais.
 
-- aceitar apenas `http`/`https`;
-- rejeitar localhost, redes privadas, link-local e metadata services;
-- validar DNS/IP para reduzir SSRF;
-- usar timeouts;
-- limitar tamanho de resposta;
-- não executar JavaScript/código arbitrário de terceiros;
-- respeitar termos e rate limits;
-- não contornar autenticação, CAPTCHA ou anti-bot.
+Não implementar antes das fases anteriores estarem validadas.
+
+## Segurança
+
+Qualquer fetch server-side controlado por URL do usuário deve:
+
+- aceitar apenas HTTP/HTTPS;
+- rejeitar localhost, redes privadas, link-local, reserved e metadata services;
+- validar DNS/IP;
+- revalidar redirects;
+- usar timeout;
+- limitar redirects e tamanho da resposta;
+- não executar JavaScript arbitrário no milestone atual.
 
 ## Ordem de desenvolvimento
 
-1. Fechar e testar a fundação v0.1.
-2. Adicionar coleta real de evidências e análise de sites na v0.2.
-3. Só então introduzir interpretação por LLM.
-4. Gerar outreach apenas depois que a qualidade das evidências estiver confiável.
-5. Validar com prospects reais antes de expandir para um SaaS genérico.
+1. Preservar Discovery + Evidence + Site Analyzer.
+2. Validar `OpportunityModule` com `web_development`.
+3. Expandir evidências objetivas do site.
+4. Calibrar e exportar oportunidades reais.
+5. Só então introduzir FreelancerProfile e Compatibility.
+6. Pricing, outreach e proposta vêm depois.
+7. Chat vem quando houver dados estruturados suficientes para ser uma boa interface.
+8. Novas categorias entram uma por vez.
+
+Veja [`PRODUCT_VISION.md`](PRODUCT_VISION.md) e [`ROADMAP.md`](ROADMAP.md).
