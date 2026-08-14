@@ -1,7 +1,7 @@
 from app.core.config import get_settings
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryProvider
 from app.services.discovery.providers import (
-    GooglePlacesProvider,
+    GeoapifyProvider,
     MockDiscoveryProvider,
     OpenStreetMapOverpassProvider,
 )
@@ -32,12 +32,13 @@ MOCK_BUSINESSES = (
 )
 
 
-def _google_places_provider() -> GooglePlacesProvider:
+def _geoapify_provider() -> GeoapifyProvider:
     settings = get_settings()
-    return GooglePlacesProvider(
-        api_key=settings.google_places_api_key,
-        endpoint=settings.google_places_endpoint,
-        timeout_seconds=settings.google_places_timeout_seconds,
+    return GeoapifyProvider(
+        api_key=settings.geoapify_api_key,
+        search_endpoint=settings.geoapify_search_endpoint,
+        details_endpoint=settings.geoapify_details_endpoint,
+        timeout_seconds=settings.geoapify_timeout_seconds,
     )
 
 
@@ -52,9 +53,9 @@ def _overpass_provider() -> OpenStreetMapOverpassProvider:
 def build_discovery_provider(name: str) -> DiscoveryProvider:
     if name == "auto":
         settings = get_settings()
-        return _google_places_provider() if settings.google_places_api_key else _overpass_provider()
-    if name == "google_places":
-        return _google_places_provider()
+        return _geoapify_provider() if settings.geoapify_api_key else _overpass_provider()
+    if name == "geoapify":
+        return _geoapify_provider()
     if name == "openstreetmap":
         return _overpass_provider()
     if name == "mock":
