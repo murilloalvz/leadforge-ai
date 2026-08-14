@@ -62,21 +62,29 @@ O produto é para freelancers em geral, mas o **único módulo ativo do MVP inic
 
 A versão continua sem afirmar performance, Core Web Vitals ou responsividade real sem uma fonte própria para isso.
 
-### v0.3.3 — Web opportunity calibration — próximo passo
+### v0.3.3 — Web opportunity calibration — concluída
 
-- montar um pequeno conjunto de sites reais com revisão humana;
-- executar o analisador atual contra esse conjunto;
-- comparar findings automáticos com o que foi verificado manualmente;
-- registrar falsos positivos e falsos negativos;
-- revisar pesos somente quando houver evidência para isso;
-- melhorar a explicação de contribuição de cada finding;
-- separar ainda melhor problema confirmado de recomendação.
+- conjunto inicial de cinco homepages públicas com revisão humana;
+- 25 rótulos sobre identidade, serviços, localização, CTA e caminho de contato;
+- comparador determinístico de falsos positivos, falsos negativos e unknowns;
+- script reproduzível de calibração ao vivo;
+- workflow manual de calibração no GitHub Actions;
+- primeira execução: 22/25 matches, com três falsos positivos concentrados em localização;
+- correção da detecção de cidade + UF brasileira;
+- segunda execução no mesmo conjunto: 25/25 matches;
+- teste de regressão para a correção;
+- pesos de `web-development-v2` mantidos inalterados porque o erro estava na detecção, não na ponderação;
+- limitações da pequena amostra documentadas em `docs/CALIBRATION.md`.
 
-### v0.3.4 — Export
+O resultado 25/25 vale somente para essa amostra inicial e não deve ser apresentado como 100% de acurácia real do produto.
 
-- exportar resultados em CSV/JSON;
-- manter fonte, score, confidence e findings no export;
-- permitir uso manual pelo freelancer.
+### v0.3.4 — Export — próximo passo
+
+- exportar resultados em CSV e JSON;
+- manter empresa, fonte, score, confidence e findings;
+- preservar certeza e evidências importantes no export;
+- permitir que o freelancer use os resultados manualmente fora da API;
+- manter o export determinístico e testável.
 
 ### v1.0 — MVP útil
 
