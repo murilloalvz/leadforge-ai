@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -9,6 +9,7 @@ from app.schemas.discovery import DiscoveryCandidateOut, DiscoveryRunOut, Discov
 from app.schemas.opportunity import OpportunityAssessmentOut
 from app.services.discovery.contracts import DiscoveryQuery
 from app.services.discovery.engine import DiscoveryEngine
+from app.services.discovery.exporter import build_discovery_export
 from app.services.discovery.factory import build_discovery_provider
 from app.services.discovery.providers import DiscoveryProviderError
 
@@ -101,6 +102,26 @@ def create_discovery_run(payload: DiscoveryRunRequest, db: DbSession) -> Discove
     except DiscoveryProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return _run_out(result.run)
+
+
+@router.get("/{run_id}/export")
+def export_discovery_run(
+    run_id: int,
+    db: DbSession,
+    format: Literal["csv", "json"] = "csv",
+) -> Response:
+    run = db.get(DiscoveryRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Execução de discovery não encontrada")
+
+    exported = build_discovery_export(run, format)
+    return Response(
+        content=exported.content,
+        media_type=exported.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{exported.filename}"',
+        },
+    )
 
 
 @router.get("/{run_id}", response_model=DiscoveryRunOut)
