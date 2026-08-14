@@ -17,10 +17,13 @@ Read before broad changes:
 - `docs/ARCHITECTURE.md`
 - `docs/WEB_EVIDENCE.md`
 - `docs/CALIBRATION.md`
+- `docs/EXPORT.md`
 
 ## Current scope
 
-The current milestone is **v0.3.3 — Web opportunity calibration**.
+The latest completed milestone is **v0.3.4 — Export**.
+
+The next planned milestone is **v0.3.5 — end-to-end MVP validation**, but it must not be started without explicit authorization.
 
 The product vision is broad; the implementation scope is intentionally narrow.
 
@@ -32,17 +35,17 @@ Current market used for validation:
 
 - local businesses.
 
-v0.3.3 includes:
+v0.3.4 includes:
 
-- everything implemented through v0.3.2;
-- a small human-reviewed calibration dataset using public local-business homepages;
-- deterministic comparison of analyzer predictions against human labels;
-- false-positive gap, false-negative gap and unknown-prediction metrics;
-- a reproducible live-calibration script;
-- a manual-only GitHub Actions workflow for live calibration;
-- a location-signal correction discovered through calibration;
-- regression tests for the corrected behavior;
-- calibration documentation and explicit limitations.
+- everything implemented through v0.3.3;
+- deterministic CSV and JSON export of persisted Discovery Runs;
+- a versioned JSON contract (`discovery-export-v1`);
+- flattened CSV for manual use;
+- OpportunityAssessment findings and relevant Site Audit evidence in exports;
+- AI Discoverability preserved as a separate diagnostic;
+- CSV formula-injection protection for public text values;
+- tests for export content, determinism, endpoint behavior and CSV safety;
+- export documentation.
 
 Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach generation, proposals, demos, extra service modules, bulk crawling or production deployment unless explicitly requested in a later milestone.
 
@@ -58,7 +61,8 @@ The following concepts are shared infrastructure and must not be tied to one fre
 - Evidence;
 - Discovery Provider;
 - Site Analyzer / future analyzers;
-- OpportunityAssessment.
+- OpportunityAssessment;
+- Discovery export contracts.
 
 ### Service-specific modules
 
@@ -120,6 +124,21 @@ Calibration exists to improve evidence quality, not to manufacture impressive ac
 - Do not copy third-party website HTML into the repository just to create a dataset.
 
 The first v0.3.3 sample reached 25/25 labeled matches after correcting Brazilian city/UF location detection. This result is specific to that five-site, mostly-positive sample and must never be described as 100% real-world accuracy.
+
+## Export rules
+
+Exports are snapshots of already persisted Discovery Runs.
+
+- Export must not re-run Discovery Providers.
+- Export must not fetch websites.
+- Export must not recalculate Site Audits or OpportunityAssessments.
+- JSON export contracts must be versioned when their public structure changes.
+- Candidate ordering must remain deterministic by discovery `rank`.
+- Preserve certainty and evidence instead of exporting only a final score.
+- Do not promote legacy Automation Opportunity fields into the new export contract.
+- Keep AI Discoverability separate from service opportunity.
+- CSV values derived from external/public text must be protected from spreadsheet formula injection.
+- JSON should preserve original public text because it is not executed as a spreadsheet formula.
 
 ## Web development module
 
