@@ -7,8 +7,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from app.services.opportunity.calibration import CalibrationCase, CalibrationMetrics
-from app.services.opportunity.calibration import evaluate_calibration
+from app.services.opportunity.calibration import (
+    CalibrationCase,
+    CalibrationMetrics,
+    evaluate_calibration,
+)
 from app.services.site_analyzer import SiteAnalyzer, SiteFetchError, UnsafeURL
 
 DEFAULT_DATASET = (
