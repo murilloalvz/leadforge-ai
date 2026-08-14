@@ -1,0 +1,67 @@
+{
+  "dataset_version": "web-calibration-2026-08-14-a",
+  "reviewed_at": "2026-08-14",
+  "scope": "Revisão manual da homepage pública. Somente sinais verificáveis diretamente na página renderizada foram rotulados; metadados e sinais não confirmáveis permanecem fora desta amostra.",
+  "cases": [
+    {
+      "id": "clinica-estetica-campinas",
+      "url": "https://clinicaesteticacampinas.com/",
+      "human_signals": {
+        "business_identity_clear": true,
+        "services_clearly_described": true,
+        "location_clearly_described": true,
+        "action_cta_present": true,
+        "lead_capture_path_present": true
+      },
+      "review_note": "Homepage apresenta identidade da clínica, lista extensa de serviços, endereço em Campinas, WhatsApp e CTA de orçamento."
+    },
+    {
+      "id": "praca-salao-bar",
+      "url": "https://www.pracasalaocampinas.com.br/",
+      "human_signals": {
+        "business_identity_clear": true,
+        "services_clearly_described": true,
+        "location_clearly_described": true,
+        "action_cta_present": true,
+        "lead_capture_path_present": true
+      },
+      "review_note": "Homepage identifica o salão, descreve categorias de serviços, mostra endereço, WhatsApp, CTAs e formulário de agendamento."
+    },
+    {
+      "id": "laen-beauty-spa",
+      "url": "https://www.laenbeautyspa.com.br/",
+      "human_signals": {
+        "business_identity_clear": true,
+        "services_clearly_described": true,
+        "location_clearly_described": true,
+        "action_cta_present": true,
+        "lead_capture_path_present": true
+      },
+      "review_note": "Homepage apresenta marca e proposta, menu de serviços, endereço e agendamento por WhatsApp."
+    },
+    {
+      "id": "hermas-beleza",
+      "url": "https://belezahermas.com.br/",
+      "human_signals": {
+        "business_identity_clear": true,
+        "services_clearly_described": true,
+        "location_clearly_described": true,
+        "action_cta_present": true,
+        "lead_capture_path_present": true
+      },
+      "review_note": "Homepage apresenta identidade, serviços detalhados, endereço e telefones, CTAs de agendamento e formulário de contato."
+    },
+    {
+      "id": "ctf-clinic",
+      "url": "https://www.ctfclinic.com/",
+      "human_signals": {
+        "business_identity_clear": true,
+        "services_clearly_described": true,
+        "location_clearly_described": true,
+        "action_cta_present": true,
+        "lead_capture_path_present": true
+      },
+      "review_note": "Homepage apresenta a CTF Clinic, serviços, atuação em Campinas/SP e caminhos explícitos de contato e agendamento por WhatsApp."
+    }
+  ]
+}
