@@ -1,49 +1,38 @@
-# Opportunity Scoring v1.1
+# Scoring — estado atual
 
-O score de oportunidade do LeadForge é determinístico. O LLM não escolhe a nota.
+## Modelo canônico
 
-A versão atual do algoritmo é `automation-v1.1`.
+A partir da v0.3.1, novos scores de oportunidade pertencem a `OpportunityAssessment` e são produzidos por um `OpportunityModule` específico de categoria.
 
-## O que mudou na revisão
+O primeiro módulo ativo é `web_development` (`web-development-v1`).
 
-A primeira versão tinha um problema simples: os sinais positivos somavam no máximo 85 pontos, então o intervalo prometido de 0 a 100 não era realmente utilizável. Na v1.1 os pesos positivos somam 100.
+Cada avaliação nova deve expor:
 
-Também foram ajustados dois pontos:
+- categoria de serviço;
+- score;
+- confidence;
+- versão;
+- findings;
+- resumo;
+- serviço sugerido, quando aplicável.
 
-- `confidence` agora pode chegar a 1.0 quando a cobertura de evidências é completa;
-- valores dependentes de uma checagem só contam para a cobertura quando a checagem realmente aconteceu.
+`confidence` representa cobertura/qualidade da evidência observada, não chance de venda.
 
-Exemplo: `booking_system_present=false` não melhora o score e nem a confiança se `booking_system_checked` não for `true`.
+## Automation Opportunity — legado
 
-## Pesos atuais
+O algoritmo `automation-v1.1` foi construído nas primeiras versões do projeto e continua no repositório para preservar trabalho, testes e compatibilidade com dados existentes.
 
-| Sinal | Peso |
-|---|---:|
-| WhatsApp presente | +12 |
-| Site próprio | +5 |
-| Formulário de contato | +6 |
-| Vários serviços | +8 |
-| Sem agendamento visível após checagem | +16 |
-| Sem automação de chat visível após checagem | +10 |
-| Sinal forte de demanda | +14 |
-| Presença social ativa | +8 |
-| Nicho de ticket médio/alto | +12 |
-| Múltiplos canais de contato | +9 |
-| Empresa grande | -20 |
-| Automação avançada já visível | -18 |
-| Possível inatividade | -25 |
+Ele não é mais o scorer canônico do LeadForge e não determina o ranking principal da v0.3.1.
 
-Os pesos ainda são hipóteses. Eles só devem ser tratados como bons depois de serem comparados com resultado real de prospecção: respostas, reuniões, propostas e vendas.
+Quando automação/RPA voltar como categoria suportada para freelancers, deverá ser adaptada para um `OpportunityModule` próprio em vez de voltar a ser um score global do Prospect.
 
-## Score x confidence
+## Princípios obrigatórios
 
-São coisas diferentes.
+- scores devem ser determinísticos quando forem canônicos;
+- pesos/regras devem ser versionados;
+- ausência de evidência não pode virar evidência de ausência;
+- findings devem distinguir `confirmed`, `strong_signal`, `inference` e `unknown`;
+- módulos diferentes não devem ser misturados em um score opaco único;
+- compatibilidade com um freelancer específico será um score futuro e separado da oportunidade do serviço.
 
-- `score`: quão interessante o prospect parece para a oferta de automação atual;
-- `confidence`: quanta evidência relevante foi realmente verificada.
-
-Um prospect pode ter score alto e confidence baixa. Nesse caso o sistema deve interpretar como "promissor, mas ainda pouco verificado", e não como certeza.
-
-## Versionamento
-
-Cada prospect armazena a versão do algoritmo usada no cálculo. Isso permite recalibrar pesos no futuro sem fingir que notas produzidas por versões diferentes são diretamente comparáveis.
+Veja [`ARCHITECTURE.md`](ARCHITECTURE.md) e [`ROADMAP.md`](ROADMAP.md).
