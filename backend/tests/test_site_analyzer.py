@@ -194,3 +194,27 @@ def test_sparse_page_exposes_web_gaps_without_inventing_performance() -> None:
     assert result.signals["images_alt_attributes_complete"] is False
     assert "core_web_vitals" not in result.signals
     assert "performance_score" not in result.signals
+
+
+def test_brazilian_city_state_pair_counts_as_location_signal() -> None:
+    page_url = "https://salon.example/"
+    robots_url = "https://salon.example/robots.txt"
+    html = """
+    <html>
+      <head><title>Laen Beauty & Spa | Campinas/SP</title></head>
+      <body>
+        <h1>Laen Beauty & Spa</h1>
+        <p>Serviços de beleza e bem-estar.</p>
+      </body>
+    </html>
+    """
+    fetcher = FakeFetcher(
+        {
+            page_url: html_response(page_url, html),
+            robots_url: robots_response(robots_url, "User-agent: *\nAllow: /\n"),
+        }
+    )
+
+    result = SiteAnalyzer(fetcher=fetcher).analyze(page_url)
+
+    assert result.signals["location_clearly_described"] is True
