@@ -11,8 +11,17 @@ from typing import Any
 class ParsedPage:
     title: str | None
     headings: tuple[str, ...]
+    heading_levels: tuple[int, ...]
     visible_text: str
     meta_robots: str | None
+    meta_description: str | None
+    viewport: str | None
+    canonical_href: str | None
+    form_count: int
+    link_hrefs: tuple[str, ...]
+    interactive_texts: tuple[str, ...]
+    image_count: int
+    images_with_alt_attribute: int
     structured_types: tuple[str, ...]
     structured_names: tuple[str, ...]
     structured_addresses: tuple[str, ...]
@@ -24,13 +33,24 @@ class _PageParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.title_parts: list[str] = []
         self.headings: list[str] = []
+        self.heading_levels: list[int] = []
         self.text_parts: list[str] = []
         self.meta_robots: str | None = None
+        self.meta_description: str | None = None
+        self.viewport: str | None = None
+        self.canonical_href: str | None = None
+        self.form_count = 0
+        self.link_hrefs: list[str] = []
+        self.interactive_texts: list[str] = []
+        self.image_count = 0
+        self.images_with_alt_attribute = 0
         self.jsonld_documents: list[str] = []
         self._jsonld_parts: list[str] = []
         self._in_title = False
         self._heading_tag: str | None = None
         self._heading_parts: list[str] = []
+        self._interactive_tag: str | None = None
+        self._interactive_parts: list[str] = []
         self._skip_depth = 0
         self._in_jsonld = False
 
@@ -53,14 +73,38 @@ class _PageParser(HTMLParser):
 
         if tag == "title":
             self._in_title = True
-        if tag in {"h1", "h2", "h3"}:
+        if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             self._heading_tag = tag
             self._heading_parts = []
+        if tag in {"a", "button"}:
+            self._interactive_tag = tag
+            self._interactive_parts = []
+
+        if tag == "a":
+            href = (attr_map.get("href") or "").strip()
+            if href:
+                self.link_hrefs.append(href)
+        elif tag == "form":
+            self.form_count += 1
+        elif tag == "img":
+            self.image_count += 1
+            if "alt" in attr_map:
+                self.images_with_alt_attribute += 1
+        elif tag == "link":
+            rel = (attr_map.get("rel") or "").lower().split()
+            href = (attr_map.get("href") or "").strip()
+            if "canonical" in rel and href:
+                self.canonical_href = href
 
         if tag == "meta":
             name = (attr_map.get("name") or "").lower()
+            content = (attr_map.get("content") or "").strip() or None
             if name == "robots":
-                self.meta_robots = attr_map.get("content")
+                self.meta_robots = content
+            elif name == "description":
+                self.meta_description = content
+            elif name == "viewport":
+                self.viewport = content
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
@@ -83,8 +127,15 @@ class _PageParser(HTMLParser):
             heading = _clean_text(" ".join(self._heading_parts))
             if heading:
                 self.headings.append(heading)
+                self.heading_levels.append(int(tag[1]))
             self._heading_tag = None
             self._heading_parts = []
+        if self._interactive_tag == tag:
+            text = _clean_text(" ".join(self._interactive_parts))
+            if text:
+                self.interactive_texts.append(text)
+            self._interactive_tag = None
+            self._interactive_parts = []
 
     def handle_data(self, data: str) -> None:
         if self._in_jsonld:
@@ -96,6 +147,8 @@ class _PageParser(HTMLParser):
             self.title_parts.append(data)
         if self._heading_tag:
             self._heading_parts.append(data)
+        if self._interactive_tag:
+            self._interactive_parts.append(data)
         cleaned = _clean_text(data)
         if cleaned:
             self.text_parts.append(cleaned)
@@ -155,9 +208,7 @@ def parse_html(html: str) -> ParsedPage:
             if isinstance(raw_type, str):
                 structured_types.add(raw_type)
             elif isinstance(raw_type, list):
-                structured_types.update(
-                    item for item in raw_type if isinstance(item, str)
-                )
+                structured_types.update(item for item in raw_type if isinstance(item, str))
 
             name = obj.get("name")
             if isinstance(name, str) and _clean_text(name):
@@ -172,8 +223,17 @@ def parse_html(html: str) -> ParsedPage:
     return ParsedPage(
         title=title,
         headings=tuple(parser.headings),
+        heading_levels=tuple(parser.heading_levels),
         visible_text=visible_text,
         meta_robots=parser.meta_robots,
+        meta_description=parser.meta_description,
+        viewport=parser.viewport,
+        canonical_href=parser.canonical_href,
+        form_count=parser.form_count,
+        link_hrefs=tuple(parser.link_hrefs),
+        interactive_texts=tuple(parser.interactive_texts),
+        image_count=parser.image_count,
+        images_with_alt_attribute=parser.images_with_alt_attribute,
         structured_types=tuple(sorted(structured_types)),
         structured_names=tuple(sorted(structured_names)),
         structured_addresses=tuple(sorted(structured_addresses)),
