@@ -11,7 +11,7 @@ class DiscoveryRunRequest(BaseModel):
     city: str = Field(min_length=2, max_length=120)
     state: str = Field(min_length=2, max_length=2)
     limit: int = Field(default=10, ge=1, le=30)
-    provider: Literal["openstreetmap", "mock"] = "openstreetmap"
+    provider: Literal["google_places", "openstreetmap", "mock"] = "google_places"
     analyze_sites: bool = True
     site_audit_limit: int = Field(default=5, ge=0, le=10)
 
