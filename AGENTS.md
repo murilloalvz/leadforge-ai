@@ -1,138 +1,247 @@
 # AGENTS.md
 
-This file defines the working rules for AI coding agents contributing to LeadForge AI.
+This file defines working rules for AI coding agents contributing to LeadForge AI.
 
-## Mission
+## Canonical product vision
 
-Build LeadForge AI incrementally as a real B2B opportunity intelligence product. Favor correctness, evidence, maintainability, and testability over feature volume.
+LeadForge is a **commercial copilot for freelancers**.
+
+The long-term product should help a freelancer describe what they can do, find companies that may need those skills, explain the evidence behind each opportunity, and later assist with compatibility, pricing, outreach, proposals and demos.
+
+Do not redefine LeadForge as a web-development-only, automation-only, SEO-only or lead-list product.
+
+Read before broad changes:
+
+- `docs/PRODUCT_VISION.md`
+- `docs/ROADMAP.md`
+- `docs/ARCHITECTURE.md`
+- `docs/WEB_EVIDENCE.md`
+- `docs/CALIBRATION.md`
+- `docs/EXPORT.md`
+- `docs/MVP_VALIDATION.md`
 
 ## Current scope
 
-The current milestone is **v0.1 — Foundation**.
+The latest completed milestone is **v0.3.5 — end-to-end MVP validation**.
 
-Do not implement future roadmap items unless explicitly requested.
+The next planned milestone is **v0.3.6 — Discovery Provider hardening**. Do not start it without explicit authorization.
 
-v0.1 includes:
+The product vision is broad; the implementation scope remains intentionally narrow.
 
-- backend project structure;
-- FastAPI application;
-- SQLAlchemy models;
-- Alembic migrations;
-- SQLite local database;
-- fictional seed data;
-- deterministic Opportunity Scoring v1;
-- minimal prospect list/detail API;
-- tests;
-- linting and typing configuration;
-- updated README setup instructions.
+Current active service module:
 
-Do **not** implement real crawling, LLM analysis, outreach sending, demo generation, or production deployment yet.
+- `web_development`
 
-## Engineering rules
+Current market used for validation:
 
-1. Inspect the repository before making changes.
-2. Write a short implementation plan before broad changes.
-3. Keep changes small and reviewable.
-4. Prefer simple, readable code over premature abstractions.
-5. Run tests and linting after meaningful changes.
-6. Never hide failing tests or errors.
-7. Avoid placeholder TODOs when a small real implementation is possible.
-8. Keep external providers behind interfaces when credentials would otherwise be required.
-9. The project must remain runnable in demo mode without secrets.
-10. Do not deploy, publish, send outreach, or perform destructive actions without explicit human authorization.
+- local businesses.
 
-## Data integrity
+v0.3.5 validated the persisted pipeline with four public businesses and live website fetches. It also found and fixed a real false positive in title descriptiveness. The validation does **not** establish production reliability or recall of the OpenStreetMap/Overpass provider.
+
+Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach generation, proposals, demos, extra service modules, bulk crawling or production deployment unless explicitly requested in a later milestone.
+
+Do **not** invent performance data, Core Web Vitals, real responsive behavior, conversion rate, budget or internal business pain from static HTML.
+
+## Architectural boundaries
+
+### Shared core
+
+The following concepts are shared infrastructure and must not be tied to one freelancer category:
+
+- Prospect;
+- Evidence;
+- Discovery Provider;
+- Site Analyzer / future analyzers;
+- OpportunityAssessment;
+- Discovery export contracts.
+
+### Service-specific modules
+
+Service-specific rules belong under `services/opportunity/<service_category>/`.
+
+Do not create empty directories for future categories. Add a new module only when it is actually being implemented.
+
+A service module should consume structured evidence/signals and return a common `OpportunityAssessmentResult`.
+
+### Scores
+
+Do not put new service-category scores directly on `Prospect`.
+
+`Prospect.score*` fields are legacy fields from the old automation-specific design. New opportunity scores belong in `OpportunityAssessment`.
+
+Automation should eventually become its own OpportunityModule if that category is reintroduced.
+
+## Evidence integrity
 
 The product must distinguish:
 
-- observed facts;
-- inference;
-- hypothesis;
-- recommendation.
+- `confirmed`;
+- `strong_signal`;
+- `inference`;
+- `unknown`.
 
 Never turn absence of evidence into evidence of absence.
 
-Every externally derived fact should eventually support provenance metadata such as source, timestamp, and confidence.
+Never label a signal as confirmed unless the current collector actually observes it.
 
-## Opportunity scoring
+Static-page findings must be scoped correctly. For example:
 
-The primary opportunity score must be deterministic and explainable.
+- acceptable: "no form was found on the analyzed page";
+- unacceptable: "the company has no form anywhere".
 
-LLMs may later interpret evidence, but they must not silently generate the canonical score.
+Examples of claims that must remain unknown until a suitable collector exists:
 
-Scoring output should expose:
+- real mobile responsiveness across breakpoints;
+- Core Web Vitals;
+- runtime performance score;
+- real conversion rate;
+- internal operational pain;
+- company budget.
 
-- total score;
-- confidence;
-- components;
-- explanation.
+Every externally derived fact should preserve source/provenance, observation time and confidence when applicable.
 
-Weights must be configurable and documented.
+Do not conflate a proxy with the concept it approximates. For example, title length alone is not proof that a title is descriptive or non-descriptive.
 
-## LLM rules
+## Calibration and live-validation rules
 
-When LLM functionality is introduced later:
+Calibration and validation exist to improve evidence quality, not to manufacture impressive accuracy numbers.
 
-- use structured outputs;
-- validate responses with Pydantic;
-- keep prompts versioned;
-- separate provider interface from provider implementation;
-- include a deterministic mock provider;
-- never present model hypotheses as facts;
-- test unsupported-claim behavior.
+- Human labels must describe only what was actually reviewed.
+- `null` means the reviewer did not establish a label and must not be counted as correct/incorrect.
+- Real websites are mutable; results must include dataset/version/date context.
+- Small samples are smoke benchmarks, not proof of general real-world accuracy.
+- Prefer fixing collection/detection errors before changing scoring weights.
+- Do not change `web-development-v2` weights without a documented calibration rationale.
+- Add a regression test for every detector bug fixed from a calibration/validation case.
+- Keep workflows that depend on live third-party websites manual; external availability must not make normal CI flaky.
+- Do not copy third-party website HTML into the repository just to create a dataset.
 
-## Security
+The v0.3.3 calibration reached 25/25 labeled matches only after a concrete location detector fix. The v0.3.5 validation found another concrete false positive around long descriptive titles and added a regression test.
 
-Never commit secrets.
+Neither result should be described as proof of general accuracy.
 
-- `.env` must remain ignored.
-- `.env.example` contains placeholders only.
-- Do not log tokens or credentials.
-- Network fetchers must use timeouts and response-size limits.
-- Protect server-side fetchers against SSRF.
-- Do not access loopback, private, link-local, or metadata-service addresses from arbitrary URLs.
-- Do not bypass authentication, CAPTCHAs, paywalls, rate limits, or anti-bot systems.
-- Prefer official APIs and permitted public sources.
+## Discovery provider rules
 
-## Privacy and outreach
+Discovery providers must remain replaceable.
 
-LeadForge is for legitimate B2B prospecting.
+Public sources must be used conservatively and according to their policies:
 
-Do not build features for:
+- no bulk harvesting from shared public infrastructure;
+- keep public Overpass queries small, sequential and user-triggered;
+- preserve attribution where required;
+- persist only data needed by the product;
+- avoid unnecessary personal-level enrichment.
 
-- collecting private personal data;
-- scraping unnecessary individual-level information;
-- deceptive identities;
-- fabricated claims;
-- automated mass spam;
-- review manipulation;
-- unsolicited sending without a human-review layer.
+Missing provider fields remain unknown.
 
-Any future outreach feature must default to `awaiting_human_review`.
+OpenStreetMap/Overpass is currently an **experimental provider**. Its availability in GitHub Actions/cloud environments was not reliable during v0.3.5. Do not hide external 5xx/timeouts by increasing timeouts indefinitely or treating them as empty discovery results.
 
-Support a `do_not_contact` state.
+The v0.3.6 milestone should compare candidate production sources using coverage, stability, terms, cost, latency and provenance before adding one provider behind the existing interface.
 
-## Demo data
+## Export rules
 
-All customer/lead data shown in demos must be fictional.
+Exports are snapshots of already persisted Discovery Runs.
 
-Seed/demo companies should also be clearly marked fictional unless explicitly created from permitted public sources in a later milestone.
+- Export must not re-run Discovery Providers.
+- Export must not fetch websites.
+- Export must not recalculate Site Audits or OpportunityAssessments.
+- JSON export contracts must be versioned when their public structure changes.
+- Candidate ordering must remain deterministic by discovery `rank`.
+- Preserve certainty and evidence instead of exporting only a final score.
+- Do not promote legacy Automation Opportunity fields into the new export contract.
+- Keep AI Discoverability separate from service opportunity.
+- CSV values derived from external/public text must be protected from spreadsheet formula injection.
+- JSON should preserve original public text because it is not executed as a spreadsheet formula.
 
-## Git workflow
+## Web development module
 
-- Do not push, merge, or create releases without explicit user authorization.
-- Prefer focused commits with meaningful messages.
-- Do not rewrite history unless explicitly requested.
-- Before proposing a commit, summarize changed files and tests run.
+`web_development` is the first MVP module, not the product identity.
 
-## Definition of done for a milestone
+Its score must remain deterministic, explainable and versioned.
+
+Raw observations do not automatically become commercial problems.
+
+Example: `form_present=false` is useful evidence, but it should not automatically create a scored problem when another clear contact/capture path exists.
+
+Prefer combined, defensible signals such as `lead_capture_path_present` when the product meaning depends on multiple observations.
+
+## AI Discoverability
+
+AI Discoverability remains a separate diagnostic from service opportunity.
+
+It answers whether a site has observable readiness signals for search/AI discovery. It does not answer whether the company is a good client for a freelancer.
+
+Never combine AI Discoverability and OpportunityAssessment into one opaque score.
+
+## Future freelancer compatibility
+
+A future Compatibility Engine will answer whether an opportunity matches a specific freelancer's skills, experience, constraints and availability.
+
+Keep this separate from the service opportunity score.
+
+Do not introduce FreelancerProfile before the core opportunity/discovery flow is sufficiently reliable.
+
+## Future pricing
+
+Pricing must eventually use structured data, scope, freshness and source confidence.
+
+An LLM may explain a price estimate; it must not invent the canonical market range.
+
+Do not implement pricing in the current milestone.
+
+## Future chat
+
+When chat is introduced, it must be grounded in persisted system data.
+
+The LLM must query/receive Prospect, Evidence, OpportunityAssessment and later FreelancerProfile/Compatibility/Pricing data. It must not invent companies, contacts, problems, evidence or prices.
+
+## Site fetching and SSRF
+
+User-controlled server-side URLs are security-sensitive.
+
+At minimum:
+
+- HTTP/HTTPS only;
+- reject embedded credentials;
+- reject localhost, private, link-local, reserved and metadata destinations;
+- validate DNS results;
+- revalidate redirects;
+- use timeouts;
+- cap redirects and response size;
+- avoid arbitrary proxy inheritance;
+- do not execute third-party JavaScript in the current milestone.
+
+Current DNS-before-connect validation is MVP protection, not perfect network isolation.
+
+## Engineering rules
+
+1. Inspect the repository before broad changes.
+2. Keep milestones small and testable.
+3. Prefer readable code over speculative abstractions.
+4. Run lint/tests after meaningful changes.
+5. Never hide failures or weaken tests just to pass CI.
+6. Keep external providers behind interfaces.
+7. The project must run without secrets in demo/test mode.
+8. Do not deploy, merge, send outreach or perform destructive actions without explicit human authorization.
+
+## Security and privacy
+
+Never commit secrets or private customer data.
+
+Do not bypass authentication, CAPTCHA, paywalls, rate limits or anti-bot systems.
+
+Do not build deceptive identities, fabricated claims, automated mass spam or review manipulation.
+
+Future outreach defaults to human review and must support `do_not_contact`.
+
+## Definition of done
 
 A milestone is done only when:
 
-- implemented behavior matches the requested scope;
+- behavior matches the requested scope;
+- lint passes;
 - tests pass;
-- linting passes;
-- setup instructions are accurate;
+- migrations work from a clean database;
+- documentation matches actual behavior;
 - no secrets are present;
-- major architecture decisions are documented;
-- unfinished future features are not disguised as complete.
+- future features are not disguised as complete.

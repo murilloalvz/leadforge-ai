@@ -1,219 +1,287 @@
-# LeadForge AI — Architecture
+# LeadForge AI — Arquitetura
 
-## Goal
+## Objetivo arquitetural
 
-LeadForge AI turns public business signals into explainable B2B automation opportunities.
+LeadForge é um copiloto comercial para freelancers. A arquitetura deve separar:
 
-The architecture is intentionally modular so the MVP can start small while preserving clear boundaries for future providers, LLM analysis, demo generation, CRM workflows, and quality monitoring.
+- descoberta de empresas;
+- coleta de evidências;
+- análise técnica;
+- avaliação de oportunidade por categoria de serviço;
+- persistência e export dos resultados;
+- futuras etapas de compatibilidade, preço e venda assistida.
 
-## High-level flow
+Nenhuma categoria específica deve ser o núcleo do sistema.
+
+## Fluxo atual
 
 ```text
 Discovery Provider
       ↓
-Prospect normalization
+normalização + deduplicação
       ↓
-Evidence / enrichment
+Prospect
       ↓
-Deterministic scoring
+Evidence
       ↓
-AI opportunity analysis
+Site Analyzer
+      ├──────────────→ AI Discoverability
+      │
       ↓
-Solution recommendation
+Opportunity Module
       ↓
-Offer + demo generation
+OpportunityAssessment
       ↓
-Human review
+ranking da execução
       ↓
-CRM workflow
+DiscoveryRun persistido
+      ↓
+CSV / JSON export
 ```
 
-## Planned modules
+Na v0.3.4 existe apenas o módulo de oportunidade `web_development`.
 
-### Discovery
+## Núcleo compartilhado
 
-Responsible for finding candidate businesses from permitted public sources.
+### Prospect
 
-Contract should return normalized company records without coupling the rest of the application to a specific provider.
+Representa a empresa identificada. Não deve carregar a identidade de um tipo de serviço específico.
 
-Initial v0.1 implementation: fictional seed data only.
+Os campos legados `score`, `score_confidence`, `score_version` e `score_explanation` ainda existem por compatibilidade com o antigo Automation Opportunity, mas novos scores de oportunidade devem ser persistidos em `OpportunityAssessment`.
 
-### Enrichment
+### Evidence
 
-Collects observable business signals and stores evidence with provenance.
+Representa informação observável com proveniência.
 
-Examples:
+Quando possível, cada evidência deve preservar:
 
-- public website;
-- WhatsApp/contact links;
-- forms;
-- visible scheduling flows;
-- public service catalog;
-- visible automation signals;
-- public activity indicators.
+- valor;
+- fonte;
+- timestamp;
+- confiança.
 
-This module is not part of v0.1 beyond data-model preparation if useful.
+Ausência de evidência não é evidência de ausência.
 
-### Opportunity Scoring
+### Discovery Provider
 
-Deterministic rules produce an explainable 0–100 score.
+Encontra negócios em fontes públicas permitidas e devolve um formato normalizado.
 
-The canonical score must not depend on an LLM.
+O restante do sistema não depende do formato específico de OpenStreetMap, Google Places ou qualquer provider futuro.
 
-Expected output:
+### Site Analyzer
 
-```json
-{
-  "total": 78,
-  "confidence": 0.82,
-  "components": [
-    {
-      "signal": "whatsapp_present",
-      "value": true,
-      "weight": 10,
-      "contribution": 10
-    }
-  ],
-  "explanation": "..."
-}
-```
+Coleta sinais objetivos de uma URL pública e produz dados reutilizáveis por múltiplos módulos.
 
-### AI Opportunity Analyst
+AI Discoverability é um consumidor desses sinais, não o único objetivo do Site Analyzer.
 
-Future milestone.
+## Opportunity Modules
 
-Consumes structured evidence and scoring output, then separates:
+Um `OpportunityModule` responde a uma pergunta específica de categoria:
 
-- observed facts;
-- hypotheses;
-- likely pain points;
-- automation opportunities;
-- recommended solution;
-- missing information.
+> As evidências observadas indicam uma oportunidade plausível para este tipo de serviço?
 
-LLM output must be schema-validated.
-
-### Solution Recommender
-
-Maps opportunity patterns to a catalog of reusable automation solutions.
-
-Initial planned catalog:
-
-- lead qualification;
-- follow-up automation;
-- appointment funnel;
-- lead dashboard.
-
-### Outreach Generator
-
-Future milestone.
-
-Produces evidence-grounded outreach drafts only. It does not send messages automatically in the MVP.
-
-All generated outreach enters a human-review state.
-
-### Demo Generator
-
-Future milestone.
-
-Builds a prospect-specific demonstration from reusable templates. All customer-level demo data must be fictional and visibly labeled as such.
-
-### CRM
-
-Tracks the prospect lifecycle:
+Contrato conceitual:
 
 ```text
-discovered
-→ analyzed
-→ high_priority
-→ offer_generated
-→ demo_ready
-→ ready_for_review
-→ contacted
-→ replied
-→ meeting
-→ proposal
-→ won / lost / do_not_contact
+OpportunityContext
+    signals
+    evidence
+        ↓
+OpportunityModule
+        ↓
+OpportunityAssessmentResult
+    service_category
+    score
+    confidence
+    version
+    summary
+    recommended_service
+    findings
 ```
 
-### Quality Monitor
+Cada módulo pode ter regras próprias, mas deve produzir a mesma estrutura de saída.
 
-Future recurring product.
-
-Evaluates deployed automation/AI conversations for:
-
-- failures;
-- abandoned leads;
-- poor responses;
-- escalation quality;
-- resolution;
-- conversion;
-- regressions over time.
-
-## Initial project shape
+Estrutura atual:
 
 ```text
-leadforge-ai/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   │   ├── discovery/
-│   │   │   ├── enrichment/
-│   │   │   ├── scoring/
-│   │   │   ├── opportunity_analysis/
-│   │   │   ├── recommendation/
-│   │   │   ├── outreach/
-│   │   │   └── demo_generation/
-│   │   └── main.py
-│   └── tests/
-├── frontend/
-├── docs/
-├── sample_data/
-├── scripts/
-├── .env.example
-├── .gitignore
-├── AGENTS.md
-└── README.md
+services/
+└── opportunity/
+    ├── contracts.py
+    └── web_development/
+        └── module.py
 ```
 
-The actual implementation should create only directories that are useful for the current milestone. Empty architecture theater is discouraged.
+Novos diretórios só devem ser criados quando um novo módulo for realmente implementado.
 
-## Data model principles
+## OpportunityAssessment
 
-Every externally observed signal should eventually support:
+É a entidade canônica para scores de oportunidade novos.
 
-- value;
-- source/provenance;
-- observation timestamp;
-- confidence;
-- optional raw evidence reference.
+Ela pode estar ligada a:
 
-A prospect should preserve current state while important lifecycle changes are captured in activity/history records.
+- Prospect;
+- DiscoveryRun;
+- SiteAudit;
+- categoria de serviço.
 
-## Security boundaries
+Isso permite que a mesma empresa tenha avaliações independentes no futuro:
 
-Future network-fetching code must:
+```text
+Prospect
+├── web_development assessment
+├── seo assessment
+├── design assessment
+└── automation assessment
+```
 
-- use allowlisted schemes (`http`, `https`);
-- reject localhost/private/link-local/metadata destinations;
-- use DNS/IP validation against SSRF;
-- use strict timeouts;
-- enforce response-size limits;
-- avoid arbitrary code/JavaScript execution;
-- respect source terms and rate limits.
+Sem colocar vários scores diretamente na tabela `prospects`.
 
-Secrets live in environment variables and never in source control.
+## Findings e certeza
 
-## Development philosophy
+Os módulos devem distinguir:
 
-1. Build v0.1 without external dependencies on paid APIs.
-2. Validate the domain model and scoring first.
-3. Add evidence ingestion second.
-4. Add LLM interpretation only after deterministic behavior is testable.
-5. Add outreach generation only after evidence quality is trustworthy.
-6. Add real-world automation/quality monitoring only after the prospecting workflow proves useful.
+- `confirmed` — evidência observável confirma o ponto;
+- `strong_signal` — sinal forte sem confirmação direta;
+- `inference` — interpretação plausível;
+- `unknown` — evidência insuficiente.
+
+No MVP atual o módulo web trabalha principalmente com `confirmed` e `unknown`.
+
+Isso é intencional: não há necessidade de inferências antes de o núcleo objetivo estar validado.
+
+## Módulo web_development
+
+É o primeiro módulo de oportunidade do MVP, não o produto inteiro.
+
+Ele reaproveita os sinais do Site Analyzer e mede gaps objetivos relacionados ao site.
+
+A versão atual não afirma responsividade real, performance ou Core Web Vitals porque ainda não existe coleta suficiente para sustentar essas conclusões.
+
+## Export de Discovery Runs
+
+O export é uma camada de leitura sobre resultados persistidos.
+
+Ele não deve ter efeitos colaterais nem alterar a conclusão original do run.
+
+```text
+DiscoveryRun persistido
+        ↓
+Discovery Exporter
+   ├── CSV
+   └── JSON
+```
+
+Regras arquiteturais:
+
+- não reexecutar providers durante export;
+- não refazer Site Audit;
+- não recalcular OpportunityAssessment;
+- ordenar candidatos pelo `rank` persistido;
+- preservar findings, certainty e evidências relevantes;
+- manter AI Discoverability separado do Opportunity Score;
+- versionar o contrato público JSON;
+- proteger células CSV contra formula injection;
+- não ressuscitar campos legados de automação como contrato principal.
+
+O contrato atual é `discovery-export-v1`.
+
+Detalhes em [`EXPORT.md`](EXPORT.md).
+
+## AI Discoverability
+
+Continua como diagnóstico independente.
+
+Ele mede readiness para descoberta e entendimento por busca/IA, não oportunidade comercial para um freelancer.
+
+Uma empresa pode ter:
+
+- alta oportunidade web e boa discoverability;
+- baixa oportunidade web e baixa discoverability;
+- qualquer outra combinação.
+
+Não misturar os scores.
+
+## Automation Opportunity legado
+
+O scorer `automation-v1.1` permanece temporariamente para preservar trabalho anterior e compatibilidade com dados/API existentes.
+
+Ele não é mais o modelo canônico de oportunidade nem deve orientar a arquitetura futura.
+
+Quando automação voltar como categoria de produto, deverá ser adaptada para um `OpportunityModule` próprio em uma fase posterior.
+
+## Compatibilidade com freelancer — futuro
+
+`OpportunityAssessment` responde se há uma oportunidade de determinado serviço.
+
+Um futuro `CompatibilityAssessment` responderá outra pergunta:
+
+> Esta oportunidade combina com este freelancer específico?
+
+Não misturar essas duas notas.
+
+Exemplo futuro:
+
+```text
+Web Opportunity: 82/100
+Freelancer Compatibility: 47/100
+```
+
+## Pricing — futuro
+
+Preço deverá ser produzido por um motor separado e sustentado por dados com fonte/frescor/confiança.
+
+O LLM poderá explicar preço e escopo, mas não será a fonte canônica do valor.
+
+## Chat — futuro
+
+O chat será uma interface sobre dados reais persistidos:
+
+```text
+FreelancerProfile
+Prospect
+Evidence
+OpportunityAssessment
+CompatibilityAssessment
+PricingAssessment
+        ↓
+       LLM
+        ↓
+resposta em linguagem natural
+```
+
+O modelo não deve inventar dados ausentes.
+
+## Demos — futuro
+
+Demos serão específicas por categoria de serviço e claramente identificadas como conceituais/não oficiais.
+
+Não implementar antes das fases anteriores estarem validadas.
+
+## Segurança
+
+Qualquer fetch server-side controlado por URL do usuário deve:
+
+- aceitar apenas HTTP/HTTPS;
+- rejeitar localhost, redes privadas, link-local, reserved e metadata services;
+- validar DNS/IP;
+- revalidar redirects;
+- usar timeout;
+- limitar redirects e tamanho da resposta;
+- não executar JavaScript arbitrário no milestone atual.
+
+Exports CSV também devem tratar texto externo como dado, nunca como fórmula executável.
+
+## Ordem de desenvolvimento
+
+1. Preservar Discovery + Evidence + Site Analyzer.
+2. Validar `OpportunityModule` com `web_development`.
+3. Expandir evidências objetivas do site.
+4. Calibrar oportunidades reais.
+5. Exportar resultados persistidos de forma segura e determinística.
+6. Validar o fluxo end-to-end em uso real controlado.
+7. Só então introduzir FreelancerProfile e Compatibility.
+8. Pricing, outreach e proposta vêm depois.
+9. Chat vem quando houver dados estruturados suficientes para ser uma boa interface.
+10. Novas categorias entram uma por vez.
+
+Veja [`PRODUCT_VISION.md`](PRODUCT_VISION.md) e [`ROADMAP.md`](ROADMAP.md).
