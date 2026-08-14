@@ -18,14 +18,15 @@ Read before broad changes:
 - `docs/WEB_EVIDENCE.md`
 - `docs/CALIBRATION.md`
 - `docs/EXPORT.md`
+- `docs/MVP_VALIDATION.md`
 
 ## Current scope
 
-The latest completed milestone is **v0.3.4 — Export**.
+The latest completed milestone is **v0.3.5 — end-to-end MVP validation**.
 
-The next planned milestone is **v0.3.5 — end-to-end MVP validation**, but it must not be started without explicit authorization.
+The next planned milestone is **v0.3.6 — Discovery Provider hardening**. Do not start it without explicit authorization.
 
-The product vision is broad; the implementation scope is intentionally narrow.
+The product vision is broad; the implementation scope remains intentionally narrow.
 
 Current active service module:
 
@@ -35,17 +36,7 @@ Current market used for validation:
 
 - local businesses.
 
-v0.3.4 includes:
-
-- everything implemented through v0.3.3;
-- deterministic CSV and JSON export of persisted Discovery Runs;
-- a versioned JSON contract (`discovery-export-v1`);
-- flattened CSV for manual use;
-- OpportunityAssessment findings and relevant Site Audit evidence in exports;
-- AI Discoverability preserved as a separate diagnostic;
-- CSV formula-injection protection for public text values;
-- tests for export content, determinism, endpoint behavior and CSV safety;
-- export documentation.
+v0.3.5 validated the persisted pipeline with four public businesses and live website fetches. It also found and fixed a real false positive in title descriptiveness. The validation does **not** establish production reliability or recall of the OpenStreetMap/Overpass provider.
 
 Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach generation, proposals, demos, extra service modules, bulk crawling or production deployment unless explicitly requested in a later milestone.
 
@@ -109,21 +100,43 @@ Examples of claims that must remain unknown until a suitable collector exists:
 
 Every externally derived fact should preserve source/provenance, observation time and confidence when applicable.
 
-## Calibration rules
+Do not conflate a proxy with the concept it approximates. For example, title length alone is not proof that a title is descriptive or non-descriptive.
 
-Calibration exists to improve evidence quality, not to manufacture impressive accuracy numbers.
+## Calibration and live-validation rules
+
+Calibration and validation exist to improve evidence quality, not to manufacture impressive accuracy numbers.
 
 - Human labels must describe only what was actually reviewed.
 - `null` means the reviewer did not establish a label and must not be counted as correct/incorrect.
-- Real websites are mutable; calibration results must include dataset/version/date context.
-- A small calibration set is a smoke benchmark, not proof of general real-world accuracy.
+- Real websites are mutable; results must include dataset/version/date context.
+- Small samples are smoke benchmarks, not proof of general real-world accuracy.
 - Prefer fixing collection/detection errors before changing scoring weights.
 - Do not change `web-development-v2` weights without a documented calibration rationale.
-- Add a regression test for every detector bug fixed from a calibration case.
-- Keep the live calibration workflow manual; external-site availability must not make normal CI flaky.
+- Add a regression test for every detector bug fixed from a calibration/validation case.
+- Keep workflows that depend on live third-party websites manual; external availability must not make normal CI flaky.
 - Do not copy third-party website HTML into the repository just to create a dataset.
 
-The first v0.3.3 sample reached 25/25 labeled matches after correcting Brazilian city/UF location detection. This result is specific to that five-site, mostly-positive sample and must never be described as 100% real-world accuracy.
+The v0.3.3 calibration reached 25/25 labeled matches only after a concrete location detector fix. The v0.3.5 validation found another concrete false positive around long descriptive titles and added a regression test.
+
+Neither result should be described as proof of general accuracy.
+
+## Discovery provider rules
+
+Discovery providers must remain replaceable.
+
+Public sources must be used conservatively and according to their policies:
+
+- no bulk harvesting from shared public infrastructure;
+- keep public Overpass queries small, sequential and user-triggered;
+- preserve attribution where required;
+- persist only data needed by the product;
+- avoid unnecessary personal-level enrichment.
+
+Missing provider fields remain unknown.
+
+OpenStreetMap/Overpass is currently an **experimental provider**. Its availability in GitHub Actions/cloud environments was not reliable during v0.3.5. Do not hide external 5xx/timeouts by increasing timeouts indefinitely or treating them as empty discovery results.
+
+The v0.3.6 milestone should compare candidate production sources using coverage, stability, terms, cost, latency and provenance before adding one provider behind the existing interface.
 
 ## Export rules
 
@@ -166,7 +179,7 @@ A future Compatibility Engine will answer whether an opportunity matches a speci
 
 Keep this separate from the service opportunity score.
 
-Do not introduce FreelancerProfile before the core opportunity detection flow is validated.
+Do not introduce FreelancerProfile before the core opportunity/discovery flow is sufficiently reliable.
 
 ## Future pricing
 
@@ -181,20 +194,6 @@ Do not implement pricing in the current milestone.
 When chat is introduced, it must be grounded in persisted system data.
 
 The LLM must query/receive Prospect, Evidence, OpportunityAssessment and later FreelancerProfile/Compatibility/Pricing data. It must not invent companies, contacts, problems, evidence or prices.
-
-## Discovery rules
-
-Discovery providers must remain replaceable.
-
-Public sources must be used conservatively and according to their policies:
-
-- no bulk harvesting from shared public infrastructure;
-- keep public Overpass queries small, sequential and user-triggered;
-- preserve attribution where required;
-- persist only data needed by the product;
-- avoid unnecessary personal-level enrichment.
-
-Missing provider fields remain unknown.
 
 ## Site fetching and SSRF
 
