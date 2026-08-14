@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Mapping, Sequence
 
 SignalValue = bool | None
 
@@ -117,8 +117,8 @@ def _compare_signals(
     )
 
 
-def _sum_metrics(metrics: Sequence[CalibrationMetrics] | object) -> CalibrationMetrics:
-    values = tuple(metrics)  # type: ignore[arg-type]
+def _sum_metrics(metrics: Iterable[CalibrationMetrics]) -> CalibrationMetrics:
+    values = tuple(metrics)
     return CalibrationMetrics(
         labeled=sum(item.labeled for item in values),
         matched=sum(item.matched for item in values),
