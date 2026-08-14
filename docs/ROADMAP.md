@@ -35,36 +35,42 @@ Este roadmap preserva o que já foi construído e separa a visão ampla do escop
 
 O produto é para freelancers em geral, mas o **único módulo ativo do MVP inicial é `web_development`**.
 
-### v0.3.1 — Opportunity Modules foundation
+### v0.3.1 — Opportunity Modules foundation — concluída
 
 - contrato genérico de `OpportunityModule`;
 - `OpportunityAssessment` independente do prospect;
 - taxonomia de certeza: confirmed / strong_signal / inference / unknown;
 - primeiro módulo `web_development`;
 - ranking do Discovery Engine baseado na oportunidade do módulo ativo;
-- manter diagnósticos antigos apenas por compatibilidade durante a transição.
+- diagnósticos antigos mantidos apenas por compatibilidade durante a transição.
 
-### v0.3.2 — Web evidence expansion
+### v0.3.2 — Web evidence expansion — concluída
 
-Adicionar sinais objetivos úteis para freelancers web, por exemplo:
-
-- viewport mobile;
+- declaração de viewport mobile;
 - presença de formulário;
-- CTA principal;
-- WhatsApp/link de contato;
-- HTTPS e redirects relevantes;
-- estrutura básica da página;
-- sinais de responsividade detectáveis sem executar JavaScript.
+- links acionáveis de WhatsApp e telefone;
+- caminho de contato/captação composto;
+- CTA detectável em elementos interativos;
+- HTTPS da URL final;
+- cadeia de redirects observada;
+- meta description;
+- canonical;
+- hierarquia básica de headings;
+- cobertura de atributo `alt` em imagens;
+- Web Development Opportunity `web-development-v2`;
+- documentação explícita das limitações de cada sinal.
 
-Não afirmar performance ou Core Web Vitals sem uma fonte própria para isso.
+A versão continua sem afirmar performance, Core Web Vitals ou responsividade real sem uma fonte própria para isso.
 
-### v0.3.3 — Web opportunity calibration
+### v0.3.3 — Web opportunity calibration — próximo passo
 
-- revisar pesos;
-- explicar contribuição de cada finding;
-- validar contra empresas reais;
-- registrar falsos positivos/negativos;
-- separar melhor problema confirmado de recomendação.
+- montar um pequeno conjunto de sites reais com revisão humana;
+- executar o analisador atual contra esse conjunto;
+- comparar findings automáticos com o que foi verificado manualmente;
+- registrar falsos positivos e falsos negativos;
+- revisar pesos somente quando houver evidência para isso;
+- melhorar a explicação de contribuição de cada finding;
+- separar ainda melhor problema confirmado de recomendação.
 
 ### v0.3.4 — Export
 
