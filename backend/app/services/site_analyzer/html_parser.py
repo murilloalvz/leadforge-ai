@@ -26,7 +26,8 @@ class _PageParser(HTMLParser):
         self.headings: list[str] = []
         self.text_parts: list[str] = []
         self.meta_robots: str | None = None
-        self.jsonld_parts: list[str] = []
+        self.jsonld_documents: list[str] = []
+        self._jsonld_parts: list[str] = []
         self._in_title = False
         self._heading_tag: str | None = None
         self._heading_parts: list[str] = []
@@ -45,6 +46,7 @@ class _PageParser(HTMLParser):
             script_type = (attr_map.get("type") or "").lower()
             if script_type == "application/ld+json":
                 self._in_jsonld = True
+                self._jsonld_parts = []
             else:
                 self._skip_depth += 1
             return
@@ -67,6 +69,10 @@ class _PageParser(HTMLParser):
             return
         if tag == "script":
             if self._in_jsonld:
+                document = "".join(self._jsonld_parts).strip()
+                if document:
+                    self.jsonld_documents.append(document)
+                self._jsonld_parts = []
                 self._in_jsonld = False
             else:
                 self._skip_depth = max(0, self._skip_depth - 1)
@@ -82,7 +88,7 @@ class _PageParser(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         if self._in_jsonld:
-            self.jsonld_parts.append(data)
+            self._jsonld_parts.append(data)
             return
         if self._skip_depth:
             return
@@ -138,30 +144,28 @@ def parse_html(html: str) -> ParsedPage:
     structured_addresses: set[str] = set()
     documents = 0
 
-    jsonld_text = "\n".join(parser.jsonld_parts).strip()
-    if jsonld_text:
-        for candidate in _split_jsonld(jsonld_text):
-            try:
-                payload = json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-            documents += 1
-            for obj in _iter_jsonld_objects(payload):
-                raw_type = obj.get("@type")
-                if isinstance(raw_type, str):
-                    structured_types.add(raw_type)
-                elif isinstance(raw_type, list):
-                    structured_types.update(
-                        item for item in raw_type if isinstance(item, str)
-                    )
+    for candidate in parser.jsonld_documents:
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        documents += 1
+        for obj in _iter_jsonld_objects(payload):
+            raw_type = obj.get("@type")
+            if isinstance(raw_type, str):
+                structured_types.add(raw_type)
+            elif isinstance(raw_type, list):
+                structured_types.update(
+                    item for item in raw_type if isinstance(item, str)
+                )
 
-                name = obj.get("name")
-                if isinstance(name, str) and _clean_text(name):
-                    structured_names.add(_clean_text(name))
+            name = obj.get("name")
+            if isinstance(name, str) and _clean_text(name):
+                structured_names.add(_clean_text(name))
 
-                address = _extract_address(obj.get("address"))
-                if address:
-                    structured_addresses.add(address)
+            address = _extract_address(obj.get("address"))
+            if address:
+                structured_addresses.add(address)
 
     title = _clean_text(" ".join(parser.title_parts)) or None
     visible_text = _clean_text(" ".join(parser.text_parts))
@@ -175,12 +179,3 @@ def parse_html(html: str) -> ParsedPage:
         structured_addresses=tuple(sorted(structured_addresses)),
         structured_data_documents=documents,
     )
-
-
-def _split_jsonld(value: str) -> tuple[str, ...]:
-    stripped = value.strip()
-    if not stripped:
-        return ()
-    if stripped.startswith("{") or stripped.startswith("["):
-        return (stripped,)
-    return tuple(part.strip() for part in stripped.split("</script>") if part.strip())
