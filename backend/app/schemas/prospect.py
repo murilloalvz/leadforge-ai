@@ -37,10 +37,12 @@ class ProspectSummary(BaseModel):
     is_fictional: bool
     score: int | None
     score_confidence: float | None
+    score_version: str | None
 
 
 class ProspectDetail(ProspectSummary):
     phone: str | None
+    score_explanation: str | None
     created_at: datetime
     updated_at: datetime
     evidence: list[EvidenceOut]

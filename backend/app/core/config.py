@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./leadforge.db"
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="LEADFORGE_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="LEADFORGE_",
+        extra="ignore",
+    )
 
 
 @lru_cache
