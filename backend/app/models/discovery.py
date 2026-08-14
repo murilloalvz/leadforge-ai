@@ -58,6 +58,10 @@ class DiscoveryCandidate(Base):
         ForeignKey("site_audits.id", ondelete="SET NULL"),
         index=True,
     )
+    opportunity_assessment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("opportunity_assessments.id", ondelete="SET NULL"),
+        index=True,
+    )
     source_external_id: Mapped[str] = mapped_column(String(160))
     source_url: Mapped[str | None] = mapped_column(String(2000))
     source_category: Mapped[str | None] = mapped_column(String(300))
@@ -73,3 +77,4 @@ class DiscoveryCandidate(Base):
     run: Mapped[DiscoveryRun] = relationship(back_populates="candidates")
     prospect = relationship("Prospect")
     site_audit = relationship("SiteAudit")
+    opportunity_assessment = relationship("OpportunityAssessment")
