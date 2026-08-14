@@ -78,13 +78,34 @@ A versão continua sem afirmar performance, Core Web Vitals ou responsividade re
 
 O resultado 25/25 vale somente para essa amostra inicial e não deve ser apresentado como 100% de acurácia real do produto.
 
-### v0.3.4 — Export — próximo passo
+### v0.3.4 — Export — concluída
 
-- exportar resultados em CSV e JSON;
-- manter empresa, fonte, score, confidence e findings;
-- preservar certeza e evidências importantes no export;
-- permitir que o freelancer use os resultados manualmente fora da API;
-- manter o export determinístico e testável.
+- export de `DiscoveryRun` persistido em CSV e JSON;
+- endpoint `GET /discovery-runs/{run_id}/export`;
+- contrato JSON versionado como `discovery-export-v1`;
+- empresa, fonte, ranking, score, confidence, serviço sugerido e findings preservados;
+- Site Audit, signals e evidence preservados quando disponíveis;
+- AI Discoverability mantido como diagnóstico separado;
+- CSV achatado para uso manual, mantendo estruturas complexas em JSON compacto;
+- proteção contra CSV formula injection em dados textuais públicos;
+- export determinístico e sem novas chamadas a providers ou sites externos;
+- testes de conteúdo, determinismo, endpoint e segurança do CSV;
+- documentação em `docs/EXPORT.md`.
+
+### v0.3.5 — Validação end-to-end do MVP — próximo passo
+
+Antes de iniciar FreelancerProfile e Compatibility, validar o fluxo completo atual em uso real controlado:
+
+- executar pequenas buscas reais em mais de um nicho/cidade;
+- revisar manualmente os leads priorizados;
+- verificar se findings e evidências sustentam a priorização;
+- verificar falhas de coleta e cobertura de sites;
+- exportar os runs em CSV/JSON e confirmar utilidade manual;
+- registrar exemplos bons, ruins e ambíguos;
+- corrigir apenas bugs/bloqueadores encontrados;
+- não adicionar novas categorias ou Fase 2 durante essa validação.
+
+O objetivo é decidir se o núcleo abaixo já é útil antes de aumentar a superfície do produto.
 
 ### v1.0 — MVP útil
 
