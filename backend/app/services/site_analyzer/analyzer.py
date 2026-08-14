@@ -46,6 +46,27 @@ LOCATION_TERMS = (
     "location",
 )
 
+CTA_TERMS = (
+    "agende",
+    "agendar",
+    "marque",
+    "marcar",
+    "fale conosco",
+    "entre em contato",
+    "contato",
+    "orcamento",
+    "orçamento",
+    "solicitar",
+    "whatsapp",
+    "ligue",
+    "saiba mais",
+    "comece agora",
+    "book",
+    "contact",
+    "get a quote",
+    "learn more",
+)
+
 GENERIC_TITLES = {
     "home",
     "inicio",
@@ -199,9 +220,11 @@ class SiteAnalyzer:
             f"{normalized_headings} {normalized_text[:8000]}",
             SERVICE_TERMS,
         )
-        location_clearly_described = bool(page.structured_addresses) or bool(
-            re.search(r"\b\d{5}-?\d{3}\b", page.visible_text)
-        ) or _contains_any(normalized_text[:8000], LOCATION_TERMS)
+        location_clearly_described = (
+            bool(page.structured_addresses)
+            or bool(re.search(r"\b\d{5}-?\d{3}\b", page.visible_text))
+            or _contains_any(normalized_text[:8000], LOCATION_TERMS)
+        )
         descriptive_titles = (
             10 <= len(page.title or "") <= 75
             and normalized_title not in {_normalize(item) for item in GENERIC_TITLES}
@@ -211,6 +234,42 @@ class SiteAnalyzer:
             schema_type in LOCAL_BUSINESS_TYPES for schema_type in page.structured_types
         )
         structured_data_matches_visible_content = self._structured_data_match(page)
+
+        hrefs = tuple(href.strip().lower() for href in page.link_hrefs)
+        whatsapp_link_present = any(
+            href.startswith("whatsapp:")
+            or "wa.me/" in href
+            or "api.whatsapp.com/" in href
+            for href in hrefs
+        )
+        telephone_link_present = any(href.startswith("tel:") for href in hrefs)
+        email_link_present = any(href.startswith("mailto:") for href in hrefs)
+        contact_page_link_present = any(
+            "contato" in href or "contact" in href for href in hrefs
+        )
+        contact_channel_present = any(
+            (
+                whatsapp_link_present,
+                telephone_link_present,
+                email_link_present,
+                contact_page_link_present,
+            )
+        )
+        interactive_text = " ".join(page.interactive_texts)
+        action_cta_present = contact_channel_present or _contains_any(
+            interactive_text,
+            CTA_TERMS,
+        )
+        form_present = page.form_count > 0
+        lead_capture_path_present = form_present or contact_channel_present
+
+        viewport = (page.viewport or "").lower().replace(" ", "")
+        mobile_viewport_present = "width=device-width" in viewport
+        images_alt_attributes_complete = (
+            None
+            if page.image_count == 0
+            else page.images_with_alt_attribute == page.image_count
+        )
 
         return {
             "public_http_ok": public_http_ok,
@@ -225,6 +284,19 @@ class SiteAnalyzer:
             "structured_data_present": structured_data_present,
             "local_business_schema": local_business_schema,
             "structured_data_matches_visible_content": structured_data_matches_visible_content,
+            "https_enabled": urlsplit(response.final_url).scheme.lower() == "https",
+            "mobile_viewport_present": mobile_viewport_present,
+            "form_present": form_present,
+            "whatsapp_link_present": whatsapp_link_present,
+            "telephone_link_present": telephone_link_present,
+            "contact_channel_present": contact_channel_present,
+            "action_cta_present": action_cta_present,
+            "lead_capture_path_present": lead_capture_path_present,
+            "meta_description_present": bool(page.meta_description),
+            "canonical_present": bool(page.canonical_href),
+            "heading_structure_basic": _heading_structure_basic(page.heading_levels),
+            "images_alt_attributes_complete": images_alt_attributes_complete,
+            "redirect_chain_reasonable": len(response.redirects) <= 2,
         }
 
     @staticmethod
@@ -243,10 +315,19 @@ class SiteAnalyzer:
     ) -> dict[str, Any]:
         return {
             "page_title": page.title,
-            "headings": list(page.headings[:12]),
+            "headings": list(page.headings[:20]),
+            "heading_levels": list(page.heading_levels[:20]),
             "word_count": len(page.visible_text.split()),
             "meta_robots": page.meta_robots,
-            "x_robots_tag": response.headers.get("x-robots-tag"),
+            "meta_description": page.meta_description,
+            "viewport": page.viewport,
+            "canonical_href": page.canonical_href,
+            "form_count": page.form_count,
+            "link_count": len(page.link_hrefs),
+            "interactive_texts": list(page.interactive_texts[:20]),
+            "image_count": page.image_count,
+            "images_with_alt_attribute": page.images_with_alt_attribute,
+            "meta_robots_header": response.headers.get("x-robots-tag"),
             "structured_data_documents": page.structured_data_documents,
             "structured_types": list(page.structured_types),
             "structured_names": list(page.structured_names),
@@ -276,8 +357,27 @@ class SiteAnalyzer:
             "structured_data_matches_visible_content": (
                 "Alinhar dados estruturados com o conteúdo visível da página."
             ),
+            "https_enabled": "Disponibilizar a versão principal do site em HTTPS.",
+            "mobile_viewport_present": "Adicionar viewport adequado para dispositivos móveis.",
+            "form_present": "Avaliar um formulário quando fizer sentido para captar contatos.",
+            "whatsapp_link_present": "Avaliar um link direto para WhatsApp quando apropriado.",
+            "telephone_link_present": "Avaliar um link de telefone clicável quando apropriado.",
+            "contact_channel_present": "Expor um caminho claro de contato na página.",
+            "action_cta_present": "Adicionar uma chamada para ação clara e acionável.",
+            "lead_capture_path_present": "Criar um caminho claro para contato ou captação.",
+            "meta_description_present": "Adicionar uma meta description descritiva.",
+            "canonical_present": "Avaliar uma URL canônica explícita para a página.",
+            "heading_structure_basic": "Revisar a hierarquia básica de headings da página.",
+            "images_alt_attributes_complete": (
+                "Adicionar atributo alt às imagens que ainda não o possuem."
+            ),
+            "redirect_chain_reasonable": "Reduzir cadeias longas de redirecionamento.",
         }
-        return tuple(messages[key] for key, value in signals.items() if value is False)
+        return tuple(
+            messages[key]
+            for key, value in signals.items()
+            if value is False and key in messages
+        )
 
 
 def _normalize(value: str) -> str:
@@ -287,5 +387,12 @@ def _normalize(value: str) -> str:
 
 
 def _contains_any(haystack: str, terms: tuple[str, ...]) -> bool:
+    normalized_haystack = _normalize(haystack)
     normalized_terms = (_normalize(term) for term in terms)
-    return any(term in haystack for term in normalized_terms)
+    return any(term in normalized_haystack for term in normalized_terms)
+
+
+def _heading_structure_basic(levels: tuple[int, ...]) -> bool:
+    if not levels or levels.count(1) != 1 or levels[0] != 1:
+        return False
+    return all(current <= previous + 1 for previous, current in zip(levels, levels[1:]))
