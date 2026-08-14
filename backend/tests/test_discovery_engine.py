@@ -20,14 +20,22 @@ class FakeAnalyzer:
             score_version="ai-discoverability-v1",
             signals={
                 "public_http_ok": True,
-                "indexable": True,
+                "https_enabled": True,
+                "mobile_viewport_present": False,
+                "lead_capture_path_present": False,
+                "action_cta_present": False,
                 "important_content_textual": True,
                 "business_identity_clear": True,
                 "services_clearly_described": False,
                 "location_clearly_described": False,
                 "descriptive_titles": True,
+                "meta_description_present": True,
+                "canonical_present": True,
+                "heading_structure_basic": True,
+                "images_alt_attributes_complete": True,
                 "structured_data_present": False,
                 "local_business_schema": False,
+                "indexable": True,
             },
             evidence={"page_title": "Clínica Teste"},
             blockers=(),
@@ -90,8 +98,9 @@ def test_discovery_creates_ranked_candidates_and_reuses_prospects() -> None:
         assert top.rank == 1
         assert top.opportunity_assessment is not None
         assert top.opportunity_assessment.service_category == "web_development"
-        assert top.opportunity_assessment.score == 40
+        assert top.opportunity_assessment.score == 43
         assert top.opportunity_assessment.confidence == 1.0
+        assert top.opportunity_assessment.version == "web-development-v2"
 
         # Legacy diagnostics remain persisted while the generic model is introduced.
         assert top.automation_score == 38
