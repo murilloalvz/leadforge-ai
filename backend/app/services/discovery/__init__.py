@@ -6,6 +6,7 @@ from app.services.discovery.contracts import (
 from app.services.discovery.engine import DiscoveryEngine, DiscoveryRunResult
 from app.services.discovery.providers import (
     DiscoveryProviderError,
+    GooglePlacesProvider,
     MockDiscoveryProvider,
     OpenStreetMapOverpassProvider,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "DiscoveryProviderError",
     "DiscoveryQuery",
     "DiscoveryRunResult",
+    "GooglePlacesProvider",
     "MockDiscoveryProvider",
     "OpenStreetMapOverpassProvider",
 ]
