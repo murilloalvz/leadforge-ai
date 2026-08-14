@@ -261,7 +261,7 @@ class SiteAnalyzer:
             or _contains_brazilian_city_state(location_haystack)
         )
         descriptive_titles = (
-            10 <= len(page.title or "") <= 75
+            len(page.title or "") >= 10
             and normalized_title not in {_normalize(item) for item in GENERIC_TITLES}
         )
         structured_data_present = page.structured_data_documents > 0
