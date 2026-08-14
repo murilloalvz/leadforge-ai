@@ -46,6 +46,39 @@ LOCATION_TERMS = (
     "location",
 )
 
+BRAZIL_STATE_CODES = (
+    "ac",
+    "al",
+    "ap",
+    "am",
+    "ba",
+    "ce",
+    "df",
+    "es",
+    "go",
+    "ma",
+    "mt",
+    "ms",
+    "mg",
+    "pa",
+    "pb",
+    "pr",
+    "pe",
+    "pi",
+    "rj",
+    "rn",
+    "rs",
+    "ro",
+    "rr",
+    "sc",
+    "sp",
+    "se",
+    "to",
+)
+CITY_STATE_PATTERN = re.compile(
+    rf"\b[a-z][a-z .'-]{{2,60}}\s*(?:/|-|,)\s*(?:{'|'.join(BRAZIL_STATE_CODES)})\b"
+)
+
 CTA_TERMS = (
     "agende",
     "agendar",
@@ -220,10 +253,12 @@ class SiteAnalyzer:
             f"{normalized_headings} {normalized_text[:8000]}",
             SERVICE_TERMS,
         )
+        location_haystack = f"{normalized_title} {normalized_text[:12000]}"
         location_clearly_described = (
             bool(page.structured_addresses)
             or bool(re.search(r"\b\d{5}-?\d{3}\b", page.visible_text))
-            or _contains_any(normalized_text[:8000], LOCATION_TERMS)
+            or _contains_any(location_haystack, LOCATION_TERMS)
+            or _contains_brazilian_city_state(location_haystack)
         )
         descriptive_titles = (
             10 <= len(page.title or "") <= 75
@@ -390,6 +425,10 @@ def _contains_any(haystack: str, terms: tuple[str, ...]) -> bool:
     normalized_haystack = _normalize(haystack)
     normalized_terms = (_normalize(term) for term in terms)
     return any(term in normalized_haystack for term in normalized_terms)
+
+
+def _contains_brazilian_city_state(value: str) -> bool:
+    return bool(CITY_STATE_PATTERN.search(_normalize(value)))
 
 
 def _heading_structure_basic(levels: tuple[int, ...]) -> bool:
