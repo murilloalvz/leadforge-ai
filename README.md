@@ -2,7 +2,7 @@
 
 O LeadForge é um projeto de **copiloto comercial para freelancers**.
 
-A visão do produto é simples:
+A ideia é simples:
 
 > O freelancer informa o que sabe fazer, e o LeadForge encontra empresas que podem precisar dessas habilidades, explica por que cada empresa é uma oportunidade e ajuda a preparar a abordagem comercial.
 
@@ -10,7 +10,7 @@ O produto final não será exclusivo para desenvolvimento web, automação ou SE
 
 A visão completa está em [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) e o planejamento em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Estado atual — v0.3.3
+## Estado atual — v0.3.4
 
 A base já possui:
 
@@ -34,9 +34,12 @@ A base já possui:
 - conjunto inicial de calibração com sites públicos reais revisados manualmente;
 - métricas de falsos positivos, falsos negativos e unknowns;
 - script e workflow manual de calibração;
+- export de Discovery Runs em CSV e JSON;
+- contrato de export JSON versionado;
+- proteção contra CSV formula injection;
 - CI, lint e testes.
 
-Ainda **não** existem FreelancerProfile, precificação, chat com IA, abordagem automática, proposta ou demo. Essas fases foram mantidas fora do escopo de propósito.
+Ainda **não** existem FreelancerProfile, precificação, chat com IA, abordagem automática, proposta ou demo. Essas fases continuam fora do escopo de propósito.
 
 ## Arquitetura mental
 
@@ -54,6 +57,8 @@ Opportunity Modules
 OpportunityAssessment
         ↓
 priorização
+        ↓
+   CSV / JSON
 ```
 
 Hoje existe apenas:
@@ -127,6 +132,48 @@ Quando um site é auditado, o candidato pode retornar uma avaliação como:
 
 Os campos antigos de Automation Opportunity continuam persistidos temporariamente por compatibilidade com versões anteriores, mas **não são mais o conceito principal nem determinam o ranking atual**.
 
+## Exportando um run
+
+Depois que um Discovery Run foi concluído, ele pode ser exportado sem repetir a busca ou reanalisar os sites.
+
+CSV:
+
+```http
+GET /discovery-runs/1/export?format=csv
+```
+
+JSON:
+
+```http
+GET /discovery-runs/1/export?format=json
+```
+
+O JSON usa o contrato:
+
+```text
+discovery-export-v1
+```
+
+Ele preserva de forma estruturada:
+
+- dados do run;
+- empresa e fonte;
+- rank e priority bucket;
+- OpportunityAssessment;
+- score e confidence;
+- serviço sugerido;
+- findings e certainty;
+- Site Audit, signals e evidence quando disponíveis;
+- AI Discoverability separadamente.
+
+O CSV achata os campos mais úteis para abrir em planilha. Findings e evidências complexas continuam disponíveis em colunas JSON para não perder informação.
+
+O export é determinístico para o mesmo estado persistido e **não faz novas chamadas de rede**.
+
+Também existe proteção contra CSV formula injection: textos públicos começando com caracteres que planilhas poderiam interpretar como fórmula são neutralizados antes da escrita no CSV.
+
+Mais detalhes em [`docs/EXPORT.md`](docs/EXPORT.md).
+
 ## Site Analyzer
 
 Também é possível analisar uma URL diretamente:
@@ -190,13 +237,7 @@ Ele usa sinais compostos quando isso evita conclusões ruins. Exemplo: a ausênc
 
 A v0.3.3 adicionou uma primeira camada de validação contra sites públicos reais revisados manualmente.
 
-O conjunto inicial contém cinco homepages e 25 rótulos sobre:
-
-- identidade do negócio;
-- descrição de serviços;
-- localização;
-- CTA;
-- caminho de contato/captação.
+O conjunto inicial contém cinco homepages e 25 rótulos sobre identidade, serviços, localização, CTA e caminho de contato/captação.
 
 Na primeira execução, o analisador acertou 22 de 25 rótulos. Os três erros eram falsos positivos concentrados em `location_clearly_described`.
 
@@ -206,15 +247,7 @@ Executando novamente o mesmo conjunto, os 25 rótulos bateram com a revisão hum
 
 Isso **não significa 100% de acurácia no mundo real**: é uma amostra pequena, com cinco sites e predominância de exemplos positivos. Ela serve como smoke benchmark auditável e como prova de que o processo de calibração consegue encontrar e corrigir erros concretos.
 
-Detalhes do método e das limitações estão em [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
-
-Para executar a calibração ao vivo a partir de `backend/`:
-
-```bash
-python scripts/calibrate_web.py
-```
-
-O workflow `Live Calibration` no GitHub Actions é manual para evitar que mudanças ou indisponibilidade de sites externos tornem a CI normal instável.
+Detalhes em [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
 ## Diagnósticos separados
 
@@ -276,9 +309,11 @@ O GitHub Actions valida lint, testes, migrations e seed.
 
 ## Próximo recorte
 
-A próxima etapa planejada é **v0.3.4 — Export**: transformar os resultados já calculados em arquivos CSV/JSON úteis para o freelancer, preservando empresa, fonte, score, confidence, findings e evidências relevantes.
+A próxima etapa planejada é **v0.3.5 — validação end-to-end do MVP**.
 
-Ainda não é hora de adicionar perfil do freelancer, preço, chat, outreach ou demo.
+Antes de iniciar perfil do freelancer e Compatibility Engine, a ideia é executar o fluxo atual em pequenas buscas reais, revisar os leads priorizados, checar cobertura/falhas e usar os exports manualmente. Se aparecer problema, corrigimos o bloqueador específico em vez de abrir várias funcionalidades novas.
+
+Ainda não é hora de adicionar preço, chat, outreach ou demo.
 
 Veja o plano completo em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
