@@ -1,126 +1,155 @@
-# LeadForge AI — Architecture
+# LeadForge AI — Arquitetura
 
-## Goal
+## Objetivo
 
-LeadForge AI turns public business signals into explainable B2B automation opportunities.
+O LeadForge transforma sinais públicos de empresas em dois diagnósticos independentes:
 
-The architecture is intentionally modular so the MVP can start small while preserving clear boundaries for future providers, LLM analysis, demo generation, CRM workflows, and quality monitoring.
+1. **Automation Opportunity** — ajuda a priorizar empresas para uma oferta de automação;
+2. **AI Discoverability** — avalia se o site está tecnicamente e semanticamente preparado para descoberta por busca e experiências de IA.
 
-## High-level flow
+Os dois usam parte da mesma coleta de evidências, mas não compartilham um score único.
+
+## Fluxo principal
 
 ```text
 Discovery Provider
       ↓
-Prospect normalization
+normalização + deduplicação
       ↓
-Evidence / enrichment
+evidências / enrichment
+      ├───────────────────────┐
+      ↓                       ↓
+Automation Opportunity    AI Discoverability
+      ↓                       ↓
+AI opportunity analyst    recomendações do site
       ↓
-Deterministic scoring
+solution recommendation
       ↓
-AI opportunity analysis
+offer + demo
       ↓
-Solution recommendation
+human review
       ↓
-Offer + demo generation
-      ↓
-Human review
-      ↓
-CRM workflow
+CRM
 ```
 
-## Planned modules
+## Discovery
 
-### Discovery
+Responsável por encontrar empresas a partir de fontes públicas permitidas. O restante do sistema não deve depender diretamente de um provider específico.
 
-Responsible for finding candidate businesses from permitted public sources.
+Na v0.1 existem apenas empresas fictícias. A v0.2 deve introduzir providers reais de forma controlada.
 
-Contract should return normalized company records without coupling the rest of the application to a specific provider.
+A identidade básica do prospect usa uma `dedup_key` normalizada. IDs estáveis de providers poderão melhorar essa deduplicação depois.
 
-Initial v0.1 implementation: fictional seed data only.
+## Evidence / Enrichment
 
-### Enrichment
+Armazena sinais observáveis com proveniência.
 
-Collects observable business signals and stores evidence with provenance.
+Exemplos comerciais:
 
-Examples:
+- WhatsApp público;
+- formulário;
+- agendamento visível;
+- catálogo de serviços;
+- automação aparente;
+- atividade pública.
 
-- public website;
-- WhatsApp/contact links;
-- forms;
-- visible scheduling flows;
-- public service catalog;
-- visible automation signals;
-- public activity indicators.
+Exemplos de site:
 
-This module is not part of v0.1 beyond data-model preparation if useful.
+- status HTTP;
+- indexabilidade;
+- regras de crawler;
+- conteúdo textual importante;
+- títulos;
+- descrição de serviços/localização;
+- dados estruturados.
 
-### Opportunity Scoring
+Um sinal externo deve, quando possível, guardar valor, fonte, timestamp e confiança.
 
-Deterministic rules produce an explainable 0–100 score.
+## Automation Opportunity Scoring
 
-The canonical score must not depend on an LLM.
+O score comercial é determinístico, explicável e versionado.
 
-Expected output:
+O LLM não escolhe a nota canônica.
+
+Saída conceitual:
 
 ```json
 {
   "total": 78,
   "confidence": 0.82,
-  "components": [
-    {
-      "signal": "whatsapp_present",
-      "value": true,
-      "weight": 10,
-      "contribution": 10
-    }
-  ],
+  "version": "automation-v1.1",
+  "components": [],
   "explanation": "..."
 }
 ```
 
-### AI Opportunity Analyst
+`confidence` representa cobertura de evidência, não chance de venda.
 
-Future milestone.
+Ausências só pontuam depois de uma checagem explícita.
 
-Consumes structured evidence and scoring output, then separates:
+## AI Discoverability
 
-- observed facts;
-- hypotheses;
-- likely pain points;
-- automation opportunities;
-- recommended solution;
-- missing information.
+É um diagnóstico separado do score comercial.
 
-LLM output must be schema-validated.
+O objetivo não é prever se uma IA vai recomendar a empresa. O objetivo é medir sinais verificáveis que favorecem descoberta e entendimento do site.
 
-### Solution Recommender
+Saída conceitual:
 
-Maps opportunity patterns to a catalog of reusable automation solutions.
+```json
+{
+  "score": 84,
+  "confidence": 0.91,
+  "version": "ai-discoverability-v1",
+  "components": [],
+  "blockers": []
+}
+```
 
-Initial planned catalog:
+Critérios v1 incluem acessibilidade pública, indexabilidade, acesso de crawlers relevantes, conteúdo textual, clareza de identidade/serviços/localização e dados estruturados coerentes.
 
-- lead qualification;
-- follow-up automation;
-- appointment funnel;
-- lead dashboard.
+Bloqueadores técnicos podem limitar a nota mesmo quando o restante do site parece bom.
 
-### Outreach Generator
+Detalhes em [`AI_DISCOVERABILITY.md`](AI_DISCOVERABILITY.md).
 
-Future milestone.
+## AI Opportunity Analyst
 
-Produces evidence-grounded outreach drafts only. It does not send messages automatically in the MVP.
+Milestone futuro.
 
-All generated outreach enters a human-review state.
+Recebe evidências e o score comercial e retorna estruturas separando:
 
-### Demo Generator
+- fatos observados;
+- hipóteses;
+- possíveis dores;
+- oportunidades de automação;
+- solução recomendada;
+- informação faltante.
 
-Future milestone.
+A saída do LLM deve ser validada por schema.
 
-Builds a prospect-specific demonstration from reusable templates. All customer-level demo data must be fictional and visibly labeled as such.
+## Solution Recommender
 
-### CRM
+Mapeia padrões de oportunidade para soluções reaproveitáveis.
 
-Tracks the prospect lifecycle:
+Catálogo inicial planejado:
+
+- qualificação de leads;
+- follow-up;
+- funil de agendamento;
+- dashboard de leads.
+
+## Outreach Generator
+
+Milestone futuro. Produz rascunhos sustentados por evidências, mas não envia automaticamente.
+
+Todo outreach começa com revisão humana.
+
+## Demo Generator
+
+Milestone futuro. Monta demos específicas a partir de templates reutilizáveis. Dados de clientes dentro das demos devem ser fictícios e identificados como tal.
+
+## CRM
+
+Pipeline inicial:
 
 ```text
 discovered
@@ -136,21 +165,13 @@ discovered
 → won / lost / do_not_contact
 ```
 
-### Quality Monitor
+## Quality Monitor
 
-Future recurring product.
+Produto recorrente futuro para automações implantadas em clientes.
 
-Evaluates deployed automation/AI conversations for:
+Poderá acompanhar falhas, leads abandonados, respostas ruins, escalonamentos, resolução, conversão e regressões.
 
-- failures;
-- abandoned leads;
-- poor responses;
-- escalation quality;
-- resolution;
-- conversion;
-- regressions over time.
-
-## Initial project shape
+## Estrutura atual
 
 ```text
 leadforge-ai/
@@ -161,59 +182,37 @@ leadforge-ai/
 │   │   ├── db/
 │   │   ├── models/
 │   │   ├── schemas/
-│   │   ├── services/
-│   │   │   ├── discovery/
-│   │   │   ├── enrichment/
-│   │   │   ├── scoring/
-│   │   │   ├── opportunity_analysis/
-│   │   │   ├── recommendation/
-│   │   │   ├── outreach/
-│   │   │   └── demo_generation/
-│   │   └── main.py
+│   │   └── services/
+│   │       ├── scoring/
+│   │       └── site_readiness/
+│   ├── alembic/
 │   └── tests/
-├── frontend/
 ├── docs/
 ├── sample_data/
-├── scripts/
-├── .env.example
-├── .gitignore
+├── .github/workflows/
 ├── AGENTS.md
 └── README.md
 ```
 
-The actual implementation should create only directories that are useful for the current milestone. Empty architecture theater is discouraged.
+Só devem existir diretórios úteis para o milestone atual. Evitar arquitetura vazia apenas para parecer grande.
 
-## Data model principles
+## Limites de segurança para a v0.2
 
-Every externally observed signal should eventually support:
+Qualquer código que busque URLs deve:
 
-- value;
-- source/provenance;
-- observation timestamp;
-- confidence;
-- optional raw evidence reference.
+- aceitar apenas `http`/`https`;
+- rejeitar localhost, redes privadas, link-local e metadata services;
+- validar DNS/IP para reduzir SSRF;
+- usar timeouts;
+- limitar tamanho de resposta;
+- não executar JavaScript/código arbitrário de terceiros;
+- respeitar termos e rate limits;
+- não contornar autenticação, CAPTCHA ou anti-bot.
 
-A prospect should preserve current state while important lifecycle changes are captured in activity/history records.
+## Ordem de desenvolvimento
 
-## Security boundaries
-
-Future network-fetching code must:
-
-- use allowlisted schemes (`http`, `https`);
-- reject localhost/private/link-local/metadata destinations;
-- use DNS/IP validation against SSRF;
-- use strict timeouts;
-- enforce response-size limits;
-- avoid arbitrary code/JavaScript execution;
-- respect source terms and rate limits.
-
-Secrets live in environment variables and never in source control.
-
-## Development philosophy
-
-1. Build v0.1 without external dependencies on paid APIs.
-2. Validate the domain model and scoring first.
-3. Add evidence ingestion second.
-4. Add LLM interpretation only after deterministic behavior is testable.
-5. Add outreach generation only after evidence quality is trustworthy.
-6. Add real-world automation/quality monitoring only after the prospecting workflow proves useful.
+1. Fechar e testar a fundação v0.1.
+2. Adicionar coleta real de evidências e análise de sites na v0.2.
+3. Só então introduzir interpretação por LLM.
+4. Gerar outreach apenas depois que a qualidade das evidências estiver confiável.
+5. Validar com prospects reais antes de expandir para um SaaS genérico.
