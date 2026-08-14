@@ -7,6 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -15,25 +16,75 @@ from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.services.discovery.contracts import DiscoveredBusiness
+from app.services.discovery.providers import MockDiscoveryProvider
 
-QUERIES = (
+VALIDATION_CASES = (
     {
-        "niche": "clínicas de estética",
-        "city": "Campinas",
-        "state": "SP",
-        "provider": "openstreetmap",
-        "limit": 6,
-        "analyze_sites": True,
-        "site_audit_limit": 3,
+        "query": {
+            "niche": "clínicas de estética",
+            "city": "Belo Horizonte",
+            "state": "MG",
+            "provider": "mock",
+            "limit": 2,
+            "analyze_sites": True,
+            "site_audit_limit": 2,
+        },
+        "businesses": (
+            DiscoveredBusiness(
+                external_id="validation/clin-clin",
+                name="Clin Clin",
+                category="aesthetic_clinic",
+                city="Belo Horizonte",
+                state="MG",
+                website="https://www.clinclin.com.br/",
+                source_url="https://www.clinclin.com.br/",
+                raw={"validation_source": "public_website"},
+            ),
+            DiscoveredBusiness(
+                external_id="validation/beauty-sa",
+                name="Beauty S.A.",
+                category="aesthetic_clinic",
+                city="Belo Horizonte",
+                state="MG",
+                website="https://beautysa.com.br/",
+                source_url="https://beautysa.com.br/",
+                raw={"validation_source": "public_website"},
+            ),
+        ),
     },
     {
-        "niche": "barbearia",
-        "city": "Campinas",
-        "state": "SP",
-        "provider": "openstreetmap",
-        "limit": 6,
-        "analyze_sites": True,
-        "site_audit_limit": 3,
+        "query": {
+            "niche": "barbearia",
+            "city": "Campinas",
+            "state": "SP",
+            "provider": "mock",
+            "limit": 2,
+            "analyze_sites": True,
+            "site_audit_limit": 2,
+        },
+        "businesses": (
+            DiscoveredBusiness(
+                external_id="validation/a-barbearia",
+                name="A Barbearia",
+                category="barber",
+                city="Campinas",
+                state="SP",
+                website="https://www.abarbearia.net/",
+                source_url="https://www.abarbearia.net/",
+                raw={"validation_source": "public_website"},
+            ),
+            DiscoveredBusiness(
+                external_id="validation/estacao-campinas",
+                name="Estação Campinas",
+                category="barber",
+                city="Campinas",
+                state="SP",
+                website="https://www.estacaocampinas.com.br/",
+                source_url="https://www.estacaocampinas.com.br/",
+                raw={"validation_source": "public_website"},
+            ),
+        ),
     },
 )
 
@@ -115,6 +166,7 @@ def _summary(run: dict[str, Any]) -> dict[str, Any]:
         "run_id": run["id"],
         "niche": run["niche"],
         "city": run["city"],
+        "provider": run["provider"],
         "discovered_count": run["discovered_count"],
         "candidate_count": len(run["candidates"]),
         "with_website": with_website,
@@ -141,13 +193,21 @@ def main() -> int:
         app.dependency_overrides[get_db] = override_get_db
         try:
             client = TestClient(app)
-            for index, query in enumerate(QUERIES):
+            for index, case in enumerate(VALIDATION_CASES):
                 if index:
                     time.sleep(2)
-                response = client.post("/discovery-runs", json=query)
+                provider = MockDiscoveryProvider(
+                    businesses=case["businesses"],
+                    name="validation_public_sample",
+                )
+                with patch(
+                    "app.api.discovery.build_discovery_provider",
+                    return_value=provider,
+                ):
+                    response = client.post("/discovery-runs", json=case["query"])
                 if response.status_code != 201:
                     raise RuntimeError(
-                        f"Discovery falhou para {query['niche']}: "
+                        f"Discovery falhou para {case['query']['niche']}: "
                         f"status={response.status_code} body={response.text}"
                     )
                 run = response.json()
@@ -160,8 +220,11 @@ def main() -> int:
             engine.dispose()
 
     total_candidates = sum(report["candidate_count"] for report in reports)
-    if total_candidates == 0:
-        raise RuntimeError("As buscas reais não retornaram nenhum candidato")
+    total_audits = sum(report["audited_count"] for report in reports)
+    if total_candidates != 4:
+        raise RuntimeError(f"A amostra esperava 4 candidatos, recebeu {total_candidates}")
+    if total_audits == 0:
+        raise RuntimeError("Nenhum site público real pôde ser auditado")
 
     print("MVP_VALIDATION_RESULT")
     print(json.dumps({"queries": reports}, ensure_ascii=False, indent=2, sort_keys=True))
