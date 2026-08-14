@@ -10,7 +10,7 @@ O produto final não será exclusivo para desenvolvimento web, automação ou SE
 
 A visão completa está em [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) e o planejamento em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Estado atual — v0.3.2
+## Estado atual — v0.3.3
 
 A base já possui:
 
@@ -31,6 +31,9 @@ A base já possui:
 - primeiro módulo de oportunidade: `web_development`;
 - Web Development Opportunity `web-development-v2`;
 - sinais objetivos de viewport, formulário, contato, CTA, HTTPS, headings, canonical, meta description e imagens;
+- conjunto inicial de calibração com sites públicos reais revisados manualmente;
+- métricas de falsos positivos, falsos negativos e unknowns;
+- script e workflow manual de calibração;
 - CI, lint e testes.
 
 Ainda **não** existem FreelancerProfile, precificação, chat com IA, abordagem automática, proposta ou demo. Essas fases foram mantidas fora do escopo de propósito.
@@ -139,7 +142,7 @@ Content-Type: application/json
 
 O Site Analyzer produz sinais e evidências reutilizáveis por diferentes diagnósticos. AI Discoverability continua separado da OpportunityAssessment.
 
-Na v0.3.2, além dos sinais anteriores, o analisador observa:
+Entre os sinais observados estão:
 
 - se a URL final usa HTTPS;
 - declaração de viewport mobile;
@@ -147,6 +150,7 @@ Na v0.3.2, além dos sinais anteriores, o analisador observa:
 - links acionáveis de WhatsApp e telefone;
 - caminho detectável de contato/captação;
 - CTA em elementos interativos;
+- identidade, serviços e localização;
 - meta description;
 - canonical;
 - hierarquia básica de headings;
@@ -181,6 +185,36 @@ Ele usa sinais compostos quando isso evita conclusões ruins. Exemplo: a ausênc
 
 - `score` representa a proporção ponderada de gaps confirmados entre os critérios observados;
 - `confidence` representa quanto da matriz relevante foi de fato verificada.
+
+## Calibração v0.3.3
+
+A v0.3.3 adicionou uma primeira camada de validação contra sites públicos reais revisados manualmente.
+
+O conjunto inicial contém cinco homepages e 25 rótulos sobre:
+
+- identidade do negócio;
+- descrição de serviços;
+- localização;
+- CTA;
+- caminho de contato/captação.
+
+Na primeira execução, o analisador acertou 22 de 25 rótulos. Os três erros eram falsos positivos concentrados em `location_clearly_described`.
+
+A análise mostrou que o detector não reconhecia bem informações explícitas em formatos como `Campinas/SP`. A regra foi corrigida e ganhou teste de regressão. Os pesos do Opportunity Score **não foram alterados**.
+
+Executando novamente o mesmo conjunto, os 25 rótulos bateram com a revisão humana.
+
+Isso **não significa 100% de acurácia no mundo real**: é uma amostra pequena, com cinco sites e predominância de exemplos positivos. Ela serve como smoke benchmark auditável e como prova de que o processo de calibração consegue encontrar e corrigir erros concretos.
+
+Detalhes do método e das limitações estão em [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
+Para executar a calibração ao vivo a partir de `backend/`:
+
+```bash
+python scripts/calibrate_web.py
+```
+
+O workflow `Live Calibration` no GitHub Actions é manual para evitar que mudanças ou indisponibilidade de sites externos tornem a CI normal instável.
 
 ## Diagnósticos separados
 
@@ -242,7 +276,7 @@ O GitHub Actions valida lint, testes, migrations e seed.
 
 ## Próximo recorte
 
-A próxima etapa planejada é **v0.3.3 — Web opportunity calibration**: testar o analisador contra um pequeno conjunto de empresas reais revisadas manualmente, registrar falsos positivos/negativos e só então ajustar pesos e regras.
+A próxima etapa planejada é **v0.3.4 — Export**: transformar os resultados já calculados em arquivos CSV/JSON úteis para o freelancer, preservando empresa, fonte, score, confidence, findings e evidências relevantes.
 
 Ainda não é hora de adicionar perfil do freelancer, preço, chat, outreach ou demo.
 
