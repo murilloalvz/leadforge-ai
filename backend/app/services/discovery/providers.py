@@ -172,7 +172,9 @@ class OpenStreetMapOverpassProvider:
                 f"Fonte OpenStreetMap respondeu HTTP {exc.response.status_code}"
             ) from exc
         except httpx.HTTPError as exc:
-            raise DiscoveryProviderError("Falha de rede ao consultar a fonte OpenStreetMap") from exc
+            raise DiscoveryProviderError(
+                "Falha de rede ao consultar a fonte OpenStreetMap"
+            ) from exc
         except ValueError as exc:
             raise DiscoveryProviderError("Resposta inválida da fonte OpenStreetMap") from exc
 
