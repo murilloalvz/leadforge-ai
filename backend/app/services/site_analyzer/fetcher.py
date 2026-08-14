@@ -33,7 +33,11 @@ def _default_resolver(hostname: str, port: int) -> list[tuple]:
     return socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
 
 
-def _resolved_ips(hostname: str, port: int, resolver: Resolver) -> set[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+def _resolved_ips(
+    hostname: str,
+    port: int,
+    resolver: Resolver,
+) -> set[ipaddress.IPv4Address | ipaddress.IPv6Address]:
     try:
         literal = ipaddress.ip_address(hostname)
     except ValueError:
@@ -43,7 +47,9 @@ def _resolved_ips(hostname: str, port: int, resolver: Resolver) -> set[ipaddress
             raise UnsafeURL(f"Não foi possível resolver o host: {hostname}") from exc
         addresses = {record[4][0] for record in records}
         if not addresses:
-            raise UnsafeURL(f"O host não possui endereço resolvível: {hostname}")
+            raise UnsafeURL(
+                f"O host não possui endereço resolvível: {hostname}"
+            ) from None
         return {ipaddress.ip_address(address) for address in addresses}
     return {literal}
 
