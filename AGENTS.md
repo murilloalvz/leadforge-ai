@@ -1,12 +1,6 @@
 # AGENTS.md
 
-This file defines working rules for AI coding agents contributing to LeadForge AI.
-
-## Canonical product vision
-
-LeadForge is a **commercial copilot for freelancers**.
-
-Do not redefine LeadForge as a web-development-only, automation-only, SEO-only or lead-list product. `web_development` is only the first active OpportunityModule.
+LeadForge is a **commercial copilot for freelancers**. Do not redefine it as a web-development-only, automation-only, SEO-only or lead-list product. `web_development` is only the first active OpportunityModule.
 
 Read before broad changes:
 
@@ -21,134 +15,78 @@ Read before broad changes:
 
 ## Current scope
 
-Current implementation version: **v0.3.6 — Discovery Provider hardening**.
+Current implementation: **v0.3.6 — Discovery Provider hardening**.
 
-Implemented in this milestone:
+- Geoapify is the preferred persistent provider when configured;
+- OpenStreetMap/Overpass is an experimental fallback;
+- `mock` remains deterministic;
+- `provider="auto"` selects Geoapify when its API key exists, otherwise Overpass;
+- CI runs automatically on PR/main, not every feature-branch push.
 
-- Google Places API (New) Text Search provider;
-- OpenStreetMap/Overpass preserved as experimental fallback;
-- deterministic mock provider preserved;
-- `provider="auto"` selects Google Places when its API key exists and Overpass otherwise;
-- explicit Google FieldMask and bounded page size;
-- provider credentials only through environment/configuration;
-- deterministic Google provider tests without real secrets;
-- CI automatic on PR/main, not every feature-branch push.
+Google Places was evaluated but must not be reintroduced as the canonical persistent prospect source without resolving its current caching/storage policy mismatch with LeadForge's persistence/export model.
 
-A real Google Places coverage/latency validation is still pending a configured API key outside the repository.
+A real Geoapify coverage/latency validation is pending a configured API key outside the repository.
 
-Do **not** implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach, proposals, demos, extra service modules, bulk crawling or production deployment during this gate.
+Do not implement FreelancerProfile, compatibility scoring, pricing, LLM/chat, outreach, proposals, demos, extra service modules, bulk crawling or production deployment during this gate.
 
-## Architectural boundaries
+## Architecture
 
-Shared infrastructure must remain service-category agnostic:
+Shared concepts remain service-category agnostic: Prospect, Evidence, DiscoveryProvider, Site Analyzer, OpportunityAssessment and export contracts. Service-specific rules belong under `services/opportunity/<service_category>/`.
 
-- Prospect;
-- Evidence;
-- DiscoveryProvider;
-- Site Analyzer / future analyzers;
-- OpportunityAssessment;
-- export contracts.
-
-Service-specific rules belong under `services/opportunity/<service_category>/`.
-
-Do not put new service-category scores directly on `Prospect`; those legacy score fields predate OpportunityAssessment.
+New service scores belong in OpportunityAssessment, not legacy `Prospect.score*` fields.
 
 ## Evidence integrity
 
-The product must distinguish:
-
-- `confirmed`;
-- `strong_signal`;
-- `inference`;
-- `unknown`.
-
-Never turn absence of evidence into evidence of absence. Scope claims to what the collector actually observed.
-
-Do not invent Core Web Vitals, real responsiveness, conversion rate, business budget or internal operational pain from static HTML.
+Distinguish `confirmed`, `strong_signal`, `inference` and `unknown`. Never turn absence of evidence into evidence of absence. Do not invent Core Web Vitals, real responsiveness, conversion rate, budget or internal pain from static HTML.
 
 ## Discovery provider rules
 
-Providers must remain replaceable behind the common contract.
+Providers must remain replaceable.
 
-### Google Places
+### Geoapify
 
-- API keys must never be committed or logged.
-- Keep FieldMask explicit; never use `*` in production code.
-- Adding a field is also a cost/privacy decision and requires review.
-- Persist only the normalized business fields needed by LeadForge plus minimal provenance.
-- Do not persist reviews, photos or unrelated atmosphere data for the current MVP.
-- Respect provider terms and current pricing documentation.
-- Treat 429/5xx/timeouts as provider failures, not empty search results.
+- API keys must never be committed or logged;
+- store only fields needed by LeadForge and minimal provenance;
+- preserve required OpenStreetMap attribution and Geoapify attribution when applicable;
+- keep queries small and user-triggered;
+- treat 429/5xx/timeouts as provider failures, not empty results;
+- do not expand enrichment fields/volume without reviewing cost and terms.
 
 ### OpenStreetMap/Overpass
 
-Overpass is experimental, not production infrastructure.
-
-- queries must remain small, sequential and user-triggered;
+- experimental, not production infrastructure;
 - no bulk harvesting from shared public infrastructure;
 - no indefinite timeout increases to hide instability;
-- external 5xx/timeouts must remain observable;
+- external failures remain observable;
 - missing OSM fields remain unknown.
 
-### Mock provider
+### Mock
 
-Keep a deterministic mock provider so the project and tests can run without secrets or external network access.
+Keep deterministic mock data so tests/development work without secrets or external network.
 
-## Calibration and live validation
+## Calibration and validation
 
-Small samples are smoke benchmarks, not proof of general accuracy.
+Small samples are smoke benchmarks, not proof of general accuracy. Fix collector/detector errors before changing scoring weights and add regression tests for real bugs. Workflows dependent on live sites or paid providers should remain manual/credential-gated.
 
-Prefer fixing detector/collector errors before changing scoring weights. Add regression tests for concrete bugs discovered from real examples.
+## Export
 
-Workflows that depend on live third-party websites or paid providers should be manual or credential-gated; normal CI must remain deterministic.
-
-## Export rules
-
-Exports are snapshots of persisted Discovery Runs.
-
-- never re-run discovery or Site Analyzer during export;
-- preserve certainty/evidence, not only a final score;
-- keep AI Discoverability separate from service opportunity;
-- protect external text against CSV formula injection;
-- version public JSON contracts when their structure changes.
+Exports are snapshots of persisted runs. Never re-run discovery or Site Analyzer during export. Preserve certainty/evidence, keep AI Discoverability separate, protect CSV text against formula injection and version public JSON contracts.
 
 ## Site fetching and SSRF
 
-User-controlled URLs are security-sensitive.
-
-At minimum:
-
-- HTTP/HTTPS only;
-- reject embedded credentials;
-- reject localhost, private, link-local, reserved and metadata destinations;
-- validate DNS results;
-- revalidate redirects;
-- use timeouts;
-- cap redirects and response size;
-- avoid arbitrary proxy inheritance;
-- do not execute third-party JavaScript in the current milestone.
-
-Current DNS-before-connect validation is MVP protection, not perfect network isolation.
+Only HTTP/HTTPS; reject embedded credentials, localhost/private/link-local/reserved/metadata destinations; validate DNS and redirects; use timeouts; cap redirects/response size; avoid arbitrary proxy inheritance; no third-party JS execution in the current milestone.
 
 ## Engineering rules
 
-1. Inspect the repository before broad changes.
+1. Inspect before broad changes.
 2. Keep milestones small, functional and testable.
-3. Prefer readable code over speculative abstractions.
-4. Run lint/tests after meaningful changes.
-5. Never hide failures or weaken tests just to pass CI.
-6. Keep external providers behind interfaces.
-7. The project must run without secrets in demo/test mode.
-8. Do not deploy, create PRs, merge, send outreach or perform destructive actions without explicit human authorization.
+3. Never weaken tests to pass CI.
+4. Keep external providers behind interfaces.
+5. Project must run in mock/test mode without secrets.
+6. Do not deploy, create PRs, merge, send outreach or perform destructive actions without explicit authorization.
 
 ## Security and privacy
 
-Never commit secrets or private customer data.
-
-Do not bypass authentication, CAPTCHA, paywalls, rate limits or anti-bot systems.
-
-Do not build deceptive identities, fabricated claims, automated mass spam or review manipulation.
-
-## Definition of done
+Never commit secrets or private customer data. Do not bypass authentication, CAPTCHA, paywalls, rate limits or anti-bot systems. Do not build deceptive identities, fabricated claims, mass spam or review manipulation.
 
 A milestone is done only when behavior matches scope, lint/tests pass, migrations work from a clean database, docs match reality, no secrets are present and future features are not disguised as complete.
