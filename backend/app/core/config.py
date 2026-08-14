@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     app_name: str = "LeadForge AI"
     environment: str = "development"
     database_url: str = "sqlite:///./leadforge.db"
+    overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
+    overpass_timeout_seconds: float = 25.0
 
     model_config = SettingsConfigDict(
         env_file=".env",
