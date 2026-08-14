@@ -134,6 +134,106 @@ class MockDiscoveryProvider:
         return tuple(matches[: query.limit])
 
 
+class GooglePlacesProvider:
+    """Google Places Text Search provider with an explicit minimal field mask."""
+
+    name = "google_places"
+    field_mask = (
+        "places.id,places.displayName,places.formattedAddress,places.primaryType,"
+        "places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri"
+    )
+
+    def __init__(
+        self,
+        api_key: str,
+        endpoint: str = "https://places.googleapis.com/v1/places:searchText",
+        *,
+        timeout_seconds: float = 12.0,
+        client: httpx.Client | None = None,
+    ) -> None:
+        if not api_key.strip():
+            raise ValueError("LEADFORGE_GOOGLE_PLACES_API_KEY não configurada")
+        self.api_key = api_key
+        self.endpoint = endpoint
+        self.client = client or httpx.Client(timeout=timeout_seconds, trust_env=False)
+
+    def discover(self, query: DiscoveryQuery) -> tuple[DiscoveredBusiness, ...]:
+        payload = {
+            "textQuery": f"{query.niche} em {query.city}, {query.state}, Brasil",
+            "pageSize": min(query.limit, 20),
+            "languageCode": "pt-BR",
+            "regionCode": "BR",
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": self.api_key,
+            "X-Goog-FieldMask": self.field_mask,
+        }
+        try:
+            response = self.client.post(self.endpoint, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        except httpx.TimeoutException as exc:
+            raise DiscoveryProviderError("Google Places excedeu o tempo limite") from exc
+        except httpx.HTTPStatusError as exc:
+            raise DiscoveryProviderError(
+                f"Google Places respondeu HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise DiscoveryProviderError("Falha de rede ao consultar Google Places") from exc
+        except ValueError as exc:
+            raise DiscoveryProviderError("Resposta inválida do Google Places") from exc
+
+        places = data.get("places")
+        if not isinstance(places, list):
+            raise DiscoveryProviderError("Resposta inesperada do Google Places")
+
+        businesses: list[DiscoveredBusiness] = []
+        for place in places:
+            if not isinstance(place, dict):
+                continue
+            place_id = place.get("id")
+            display_name = place.get("displayName")
+            name = display_name.get("text") if isinstance(display_name, dict) else None
+            if not isinstance(place_id, str) or not isinstance(name, str) or not name.strip():
+                continue
+
+            source_url = place.get("googleMapsUri")
+            businesses.append(
+                DiscoveredBusiness(
+                    external_id=f"google/{place_id}",
+                    name=name.strip(),
+                    category=(
+                        place.get("primaryType")
+                        if isinstance(place.get("primaryType"), str)
+                        else None
+                    ),
+                    city=query.city,
+                    state=query.state.upper(),
+                    website=(
+                        place.get("websiteUri")
+                        if isinstance(place.get("websiteUri"), str)
+                        else None
+                    ),
+                    phone=(
+                        place.get("nationalPhoneNumber")
+                        if isinstance(place.get("nationalPhoneNumber"), str)
+                        else None
+                    ),
+                    source_url=source_url if isinstance(source_url, str) else None,
+                    raw={
+                        "place_id": place_id,
+                        "formatted_address": place.get("formattedAddress"),
+                        "primary_type": place.get("primaryType"),
+                    },
+                )
+            )
+            if len(businesses) >= query.limit:
+                break
+
+        return tuple(businesses)
+
+
 class OpenStreetMapOverpassProvider:
     """Small interactive OSM discovery provider, not a bulk data harvester."""
 
