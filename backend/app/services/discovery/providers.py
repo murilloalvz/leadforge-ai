@@ -134,6 +134,141 @@ class MockDiscoveryProvider:
         return tuple(matches[: query.limit])
 
 
+class GeoapifyProvider:
+    """Persistent-friendly POI discovery backed by Geoapify/OpenStreetMap data."""
+
+    name = "geoapify"
+
+    def __init__(
+        self,
+        api_key: str,
+        search_endpoint: str = "https://api.geoapify.com/v1/geocode/search",
+        details_endpoint: str = "https://api.geoapify.com/v2/place-details",
+        *,
+        timeout_seconds: float = 12.0,
+        client: httpx.Client | None = None,
+    ) -> None:
+        if not api_key.strip():
+            raise ValueError("LEADFORGE_GEOAPIFY_API_KEY não configurada")
+        self.api_key = api_key
+        self.search_endpoint = search_endpoint
+        self.details_endpoint = details_endpoint
+        self.client = client or httpx.Client(timeout=timeout_seconds, trust_env=False)
+
+    def _get_json(self, url: str, params: dict[str, Any], *, operation: str) -> dict[str, Any]:
+        try:
+            response = self.client.get(url, params=params)
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.TimeoutException as exc:
+            raise DiscoveryProviderError(f"Geoapify excedeu o tempo limite em {operation}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise DiscoveryProviderError(
+                f"Geoapify respondeu HTTP {exc.response.status_code} em {operation}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise DiscoveryProviderError(
+                f"Falha de rede ao consultar Geoapify em {operation}"
+            ) from exc
+        except ValueError as exc:
+            raise DiscoveryProviderError(f"Resposta inválida do Geoapify em {operation}") from exc
+        if not isinstance(payload, dict):
+            raise DiscoveryProviderError(f"Resposta inesperada do Geoapify em {operation}")
+        return payload
+
+    def _details(self, place_id: str) -> dict[str, Any]:
+        payload = self._get_json(
+            self.details_endpoint,
+            {
+                "id": place_id,
+                "features": "details",
+                "lang": "pt",
+                "apiKey": self.api_key,
+            },
+            operation="place-details",
+        )
+        features = payload.get("features")
+        if not isinstance(features, list):
+            return {}
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            properties = feature.get("properties")
+            if isinstance(properties, dict) and properties.get("feature_type") == "details":
+                return properties
+        return {}
+
+    def discover(self, query: DiscoveryQuery) -> tuple[DiscoveredBusiness, ...]:
+        search_limit = min(query.limit, 20)
+        payload = self._get_json(
+            self.search_endpoint,
+            {
+                "text": f"{query.niche}, {query.city}, {query.state}, Brasil",
+                "type": "amenity",
+                "filter": "countrycode:br",
+                "lang": "pt",
+                "limit": search_limit,
+                "format": "json",
+                "apiKey": self.api_key,
+            },
+            operation="geocode-search",
+        )
+        results = payload.get("results")
+        if not isinstance(results, list):
+            raise DiscoveryProviderError("Resposta inesperada do Geoapify em geocode-search")
+
+        businesses: list[DiscoveredBusiness] = []
+        seen: set[str] = set()
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            place_id = result.get("place_id")
+            name = result.get("name") or result.get("address_line1")
+            if not isinstance(place_id, str) or not isinstance(name, str) or not name.strip():
+                continue
+            if place_id in seen:
+                continue
+            seen.add(place_id)
+
+            details = self._details(place_id)
+            contact = details.get("contact")
+            phone = contact.get("phone") if isinstance(contact, dict) else None
+            website = details.get("website")
+            categories = result.get("categories")
+            category = (
+                categories[0]
+                if isinstance(categories, list) and categories and isinstance(categories[0], str)
+                else result.get("category") if isinstance(result.get("category"), str) else None
+            )
+
+            businesses.append(
+                DiscoveredBusiness(
+                    external_id=f"geoapify/{place_id}",
+                    name=name.strip(),
+                    category=category,
+                    city=(
+                        result.get("city")
+                        if isinstance(result.get("city"), str)
+                        else query.city
+                    ),
+                    state=query.state.upper(),
+                    website=website if isinstance(website, str) else None,
+                    phone=phone if isinstance(phone, str) else None,
+                    source_url="https://www.geoapify.com/places-api/",
+                    raw={
+                        "place_id": place_id,
+                        "formatted_address": result.get("formatted"),
+                        "categories": categories if isinstance(categories, list) else [],
+                        "data_source": "openstreetmap",
+                    },
+                )
+            )
+            if len(businesses) >= query.limit:
+                break
+
+        return tuple(businesses)
+
+
 class OpenStreetMapOverpassProvider:
     """Small interactive OSM discovery provider, not a bulk data harvester."""
 
