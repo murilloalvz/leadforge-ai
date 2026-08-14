@@ -1,10 +1,10 @@
 # Discovery Engine
 
-O Discovery Engine é a camada do LeadForge responsável por transformar uma busca simples de nicho + cidade em uma lista de prospects com evidência e contexto suficiente para priorização.
+O Discovery Engine transforma uma busca de nicho + cidade + UF em prospects normalizados e evidências que podem ser avaliadas por módulos de oportunidade.
 
-Ele não é um "gerador de leads" isolado. O papel dele é alimentar os diagnósticos que já existem no projeto.
+Ele não é um gerador de lista isolado e não pertence a uma categoria específica de freelancer.
 
-## Fluxo
+## Fluxo atual
 
 ```text
 nicho + cidade + UF
@@ -14,72 +14,58 @@ Discovery Provider
 normalização + deduplicação
         ↓
 Prospect
-        ├──────────────→ Automation Opportunity Score
-        │
-        └──────────────→ Site Analyzer (quando houver site e orçamento de auditoria)
-                                ↓
-                       AI Discoverability Score
+        ↓
+Site Analyzer (quando houver site e orçamento de auditoria)
+        ↓
+OpportunityModule ativo
+        ↓
+OpportunityAssessment
         ↓
 priority bucket
         ↓
-ranking da execução
+ranking
 ```
 
-Os dois scores continuam independentes. O ranking não cria um terceiro score mágico.
+Na v0.3.1 o módulo ativo é `web_development`.
+
+AI Discoverability continua sendo produzido separadamente pelo Site Analyzer. O antigo Automation Opportunity também continua persistido temporariamente para compatibilidade, mas não determina mais o ranking principal.
 
 ## Providers
 
-A camada de discovery usa um contrato próprio para que a fonte possa ser trocada sem reescrever o motor.
-
 Providers atuais:
 
-- `mock`: empresas fictícias para desenvolvimento/testes;
-- `openstreetmap`: consulta pequena ao Overpass API para descoberta inicial de negócios públicos.
+- `mock`: empresas fictícias para testes/desenvolvimento;
+- `openstreetmap`: consulta pequena ao Overpass API para descoberta inicial.
 
-A implementação do OpenStreetMap é intencionalmente conservadora. Ela é apropriada para experimentação e uso interativo pequeno, não para montar uma base comercial em massa usando infraestrutura pública gratuita.
+Providers permanecem atrás de contrato próprio. O restante do sistema não depende do formato específico da fonte.
 
-A fonte OSM também não deve ser tratada como cadastro completo. Se um negócio não tiver `website`, `phone` ou `contact:whatsapp` mapeado, o LeadForge mantém o dado como desconhecido. Ele não conclui que o canal não existe.
+OpenStreetMap/Overpass é usado de forma conservadora e interativa, não como infraestrutura de bulk harvesting.
+
+Campos ausentes na fonte permanecem desconhecidos. Falta de `website`, `phone` ou WhatsApp no provider não significa que esses canais não existem.
 
 ## Dados persistidos
 
-Cada execução salva:
+Cada execução salva nicho, cidade, UF, provider, limites, contadores, status e timestamps.
 
-- nicho, cidade e UF;
-- provider;
-- limite solicitado;
-- quantidade descoberta/criada/reutilizada;
-- quantidade de sites auditados e falhas de auditoria;
-- status e timestamps.
+Cada candidato pode referenciar:
 
-Cada candidato salva:
+- Prospect;
+- SiteAudit;
+- OpportunityAssessment;
+- fonte/categoria pública;
+- payload minimizado;
+- posição no ranking.
 
-- prospect associado;
-- identificador e URL da fonte;
-- categoria pública;
-- payload minimizado da fonte;
-- Automation Opportunity Score + confidence;
-- AI Discoverability Score + confidence, quando auditado;
-- `priority_bucket`;
-- posição no ranking;
-- auditoria de site associada, quando houver.
+## Priority buckets v0.3.1
 
-O payload bruto do provider é reduzido a um conjunto pequeno de tags úteis. Campos não usados, como e-mails presentes no elemento OSM, não são armazenados automaticamente.
+- `high_opportunity`;
+- `medium_opportunity`;
+- `low_opportunity`;
+- `insufficient_evidence`.
 
-## Priority buckets
-
-A v0.3 usa grupos explícitos:
-
-- `dual_signal`: há sinal comercial e um site com oportunidade clara de melhoria;
-- `automation_signal`: há sinais positivos para automação, mas não há gap forte/confirmado no site;
-- `site_opportunity`: o principal gap observado está no site;
-- `monitor`: há dados suficientes para observar, mas nenhum sinal forte na regra atual;
-- `insufficient_evidence`: ainda falta evidência para priorizar com segurança.
-
-Esses buckets servem apenas para ordenar trabalho. Eles não substituem os scores originais.
+Os buckets são derivados do OpportunityAssessment ativo e servem apenas para ordenar o trabalho. Score e confidence continuam visíveis separadamente.
 
 ## API
-
-Criar uma execução:
 
 ```http
 POST /discovery-runs
@@ -102,23 +88,18 @@ Consultar depois:
 GET /discovery-runs/{id}
 ```
 
-Para trabalhar sem rede externa, use `provider: "mock"` e, se quiser, `analyze_sites: false`.
+Sem rede externa, use `provider: "mock"` e `analyze_sites: false`.
 
 ## Limitações atuais
 
-- a resolução de área do provider OSM usa o nome da cidade e níveis administrativos esperados; nomes ambíguos podem exigir um provider melhor no futuro;
-- cobertura do OpenStreetMap varia bastante por cidade e categoria;
-- discovery e auditorias rodam de forma síncrona no MVP;
-- a execução audita apenas até `site_audit_limit` sites para evitar requests ilimitados;
-- não há busca de decisores ou enriquecimento de pessoas;
-- não há envio de mensagem;
-- não há LLM nessa etapa.
+- cobertura do OpenStreetMap varia por cidade/categoria;
+- discovery e auditoria ainda são síncronos;
+- apenas até `site_audit_limit` sites são analisados por execução;
+- o único OpportunityModule ativo é web development;
+- não há perfil do freelancer, preço, chat, outreach ou demo;
+- não há busca de decisores/pessoas.
 
-## OpenStreetMap
-
-Dados provenientes do OpenStreetMap devem manter atribuição e respeitar os termos/licença aplicáveis. O endpoint público do Overpass também é um recurso compartilhado e não deve ser usado como infraestrutura de bulk harvesting.
-
-Referências:
+## Referências do provider inicial
 
 - https://www.openstreetmap.org/copyright
 - https://wiki.openstreetmap.org/wiki/Overpass_API
