@@ -1,70 +1,81 @@
 # LeadForge AI
 
-O LeadForge é um projeto que estou construindo para transformar sinais públicos de empresas em informação útil para prospecção, automação e melhoria da presença digital.
+O LeadForge é um projeto de **copiloto comercial para freelancers**.
 
-A ideia é simples: em vez de sair oferecendo "IA e automação" para qualquer empresa, o sistema tenta encontrar negócios, organizar o que realmente consegue observar e mostrar onde existe uma oportunidade mais interessante.
+A visão do produto é simples:
 
-Hoje o projeto trabalha com dois diagnósticos separados:
+> O freelancer informa o que sabe fazer, e o LeadForge encontra empresas que podem precisar dessas habilidades, explica por que cada empresa é uma oportunidade e ajuda a preparar a abordagem comercial.
 
-- **Automation Opportunity Score** — sinais de oportunidade para automação;
-- **AI Discoverability Score** — prontidão do site para ser encontrado e entendido por mecanismos de busca e experiências de IA.
+O produto final não será exclusivo para desenvolvimento web, automação ou SEO. Essas áreas entram como **módulos de oportunidade**. O primeiro módulo validado no MVP é `web_development`, focado inicialmente em negócios locais.
 
-Não existe um score único misturando os dois. Eles medem problemas diferentes.
+A visão completa está em [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) e o planejamento em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Estado atual
+## Estado atual — v0.3.1
 
-A branch de desenvolvimento da **v0.3** já tem:
+A base já possui:
 
 - FastAPI;
 - SQLAlchemy + SQLite;
 - migrations com Alembic;
-- prospects, evidências e CRM básico;
-- Opportunity Scoring determinístico e versionado;
-- deduplicação de prospects;
-- 15 empresas fictícias para desenvolvimento;
-- API de prospects;
-- Site Analyzer real por URL;
-- leitura de `robots.txt`, `noindex`, `X-Robots-Tag`, HTML e JSON-LD;
-- AI Discoverability Score;
+- prospects e evidências com fonte/confiança;
+- Discovery Engine por nicho + cidade + UF;
+- provider mock;
+- provider inicial OpenStreetMap/Overpass;
+- deduplicação e reutilização de prospects;
+- Site Analyzer por URL;
+- leitura de HTML, `robots.txt`, `noindex`, `X-Robots-Tag` e JSON-LD;
+- AI Discoverability como diagnóstico separado;
 - proteção inicial contra SSRF;
-- **Discovery Engine por nicho + cidade + UF**;
-- provider mock para trabalhar sem rede externa;
-- provider inicial usando OpenStreetMap/Overpass;
-- criação/reutilização automática de prospects;
-- auditoria opcional dos sites encontrados;
-- ranking por buckets explícitos, sem inventar um terceiro score;
-- testes automatizados e CI.
+- CI, lint e testes;
+- contrato genérico de `OpportunityModule`;
+- persistência de `OpportunityAssessment`;
+- primeiro módulo de oportunidade: `web_development`.
 
-Ainda **não** há análise por LLM, busca de decisores, envio de mensagens, demo personalizada ou execução em massa.
+Ainda **não** existem FreelancerProfile, precificação, chat com IA, abordagem automática, proposta ou demo. Essas fases foram mantidas fora do escopo de propósito.
 
-## Fluxo atual
+## Arquitetura mental
 
 ```text
-nicho + cidade + UF
+Discovery Providers
         ↓
-Discovery Engine
+     Prospect
         ↓
-empresas públicas encontradas
+     Evidence
         ↓
-deduplicação + evidências
+ Site Analyzer / outras fontes
         ↓
-Prospect
-   ├────────────→ Automation Opportunity
-   │
-   └────────────→ Site Analyzer
-                         ↓
-                AI Discoverability
+Opportunity Modules
+        ↓
+OpportunityAssessment
         ↓
 priorização
 ```
 
-O princípio mais importante continua sendo: **fato observado e hipótese não são a mesma coisa**.
+Hoje existe apenas:
 
-Se uma fonte não informa WhatsApp, por exemplo, isso não significa que a empresa não usa WhatsApp. O dado continua desconhecido até existir uma checagem melhor.
+```text
+Opportunity Modules
+└── web_development
+```
 
-## Descobrindo prospects
+No futuro poderão existir módulos como SEO, design, social media, automação ou dados sem transformar essas categorias no núcleo do produto.
 
-Com a API rodando:
+## Integridade das conclusões
+
+O LeadForge não deve transformar hipótese em fato.
+
+Os findings usam uma taxonomia explícita:
+
+- `confirmed` — sustentado por evidência observável;
+- `strong_signal` — sinal forte, mas sem confirmação direta;
+- `inference` — interpretação plausível;
+- `unknown` — informação insuficiente.
+
+Na v0.3.1 o módulo web é deliberadamente conservador: ele usa apenas `confirmed` e `unknown` porque ainda não precisamos de inferências para o primeiro MVP.
+
+## Discovery
+
+Exemplo:
 
 ```http
 POST /discovery-runs
@@ -81,38 +92,29 @@ Content-Type: application/json
 }
 ```
 
-A execução salva os prospects encontrados, reaproveita empresas já existentes e pode analisar uma quantidade limitada de sites na mesma rodada.
-
-Cada candidato retorna os dois diagnósticos separadamente:
+Quando um site é auditado, o candidato pode retornar uma avaliação como:
 
 ```json
 {
-  "name": "Exemplo Clínica",
-  "automation_score": 38,
-  "automation_confidence": 0.24,
-  "ai_discoverability_score": 44,
-  "ai_discoverability_confidence": 0.91,
-  "priority_bucket": "dual_signal"
+  "name": "Empresa Exemplo",
+  "priority_bucket": "medium_opportunity",
+  "opportunity": {
+    "service_category": "web_development",
+    "score": 40,
+    "confidence": 1.0,
+    "version": "web-development-v1",
+    "summary": "Foram confirmados 4 ponto(s) de melhoria web...",
+    "recommended_service": "Melhoria de site institucional",
+    "findings": []
+  }
 }
 ```
 
-O `automation_confidence` pode ser baixo no discovery inicial — e isso é esperado. Nessa fase normalmente temos poucas evidências comerciais. O sistema não tenta esconder essa incerteza.
+Os campos antigos de Automation Opportunity continuam persistidos temporariamente por compatibilidade com as versões anteriores, mas **não são mais o conceito principal nem determinam o ranking da v0.3.1**.
 
-Para testar sem depender de nenhuma fonte externa:
+## Site Analyzer
 
-```json
-{
-  "niche": "clínicas de estética",
-  "city": "Campinas",
-  "state": "SP",
-  "provider": "mock",
-  "analyze_sites": false
-}
-```
-
-Mais detalhes em [`docs/DISCOVERY_ENGINE.md`](docs/DISCOVERY_ENGINE.md).
-
-## Analisando um site diretamente
+Também é possível analisar uma URL diretamente:
 
 ```http
 POST /site-audits
@@ -123,80 +125,56 @@ Content-Type: application/json
 }
 ```
 
-Também é possível ligar a auditoria a um prospect existente:
+O Site Analyzer produz sinais e evidências reutilizáveis por diferentes diagnósticos. AI Discoverability continua separado da OpportunityAssessment.
 
-```json
-{
-  "url": "https://exemplo.com.br",
-  "prospect_id": 3
-}
-```
+## Primeiro módulo: web development
 
-Depois:
+O módulo atual reaproveita apenas sinais que já conseguimos observar de forma defensável, como:
 
-```http
-GET /site-audits/{id}
-```
+- disponibilidade da página;
+- indexabilidade;
+- conteúdo textual;
+- clareza da identidade do negócio;
+- descrição de serviços;
+- localização;
+- títulos;
+- dados estruturados;
+- marcação de negócio local.
 
-## Segurança do Site Analyzer
+Ele ainda **não afirma** responsividade, Core Web Vitals ou performance real porque o coletor atual não mede isso de forma suficiente.
 
-O endpoint recebe URLs informadas pelo usuário, então essa parte do backend é tratada como sensível.
+O próximo milestone deve expandir evidências objetivas para desenvolvimento web antes de introduzir qualquer fase comercial baseada em IA.
 
-O MVP já:
+## Diagnósticos separados
 
-- aceita apenas HTTP/HTTPS;
-- bloqueia localhost e IPs não públicos;
-- resolve DNS antes do fetch;
-- revalida redirects;
-- limita redirects e tamanho da resposta;
-- usa timeout;
-- não executa JavaScript.
+### Web Development Opportunity
 
-Ainda não considero essa camada uma sandbox de rede pronta para exposição pública. Antes disso, quero endurecer proteção contra DNS rebinding/TOCTOU e detalhes de infraestrutura/proxy.
+Responde:
 
-## OpenStreetMap no Discovery Engine
+> Existem problemas observáveis neste site que tornam a empresa uma oportunidade plausível para um freelancer de desenvolvimento web?
 
-O provider inicial usa OpenStreetMap/Overpass porque permite testar o fluxo de discovery sem depender de uma chave paga.
+### AI Discoverability
 
-Isso não transforma o Overpass público numa base comercial para coleta em massa. As consultas são pequenas e disparadas pelo usuário, e o provider fica isolado justamente para poder ser substituído depois.
+Responde:
 
-Também reduzo o payload armazenado aos campos necessários para o LeadForge em vez de salvar todas as tags devolvidas pela fonte.
+> O site está preparado para ser encontrado e entendido por mecanismos de busca e experiências de IA?
 
-A cobertura do OpenStreetMap varia bastante conforme cidade e nicho, então o provider atual deve ser visto como uma primeira fonte de descoberta, não como fonte definitiva.
+São perguntas diferentes e continuam com scores separados.
 
-## Score de oportunidade
+## Segurança e privacidade
 
-O score comercial não vem de um LLM. Ele usa regras explícitas e auditáveis.
+O projeto trabalha com prospecção B2B legítima e informações comerciais públicas.
 
-A versão atual é `automation-v1.1`. O `confidence` representa cobertura de evidência, não chance de fechar venda.
+Não é objetivo:
 
-Mais detalhes em [`docs/SCORING.md`](docs/SCORING.md).
+- coletar dados privados desnecessários;
+- contornar login, CAPTCHA ou paywall;
+- montar coleta em massa sobre infraestrutura pública;
+- usar identidades falsas;
+- disparar spam;
+- apresentar inferências como fatos.
 
-## AI Discoverability
-
-Esse score não tenta prever "qual IA vai recomendar a empresa".
-
-Ele mede coisas observáveis como:
-
-- página pública e indexável;
-- acesso de crawlers;
-- informações importantes em texto;
-- serviços e localização claros;
-- identidade do negócio;
-- títulos descritivos;
-- dados estruturados.
-
-Uma empresa pode ter um site excelente e processos comerciais manuais, ou o contrário. Por isso os dois scores continuam independentes.
-
-Mais detalhes em [`docs/AI_DISCOVERABILITY.md`](docs/AI_DISCOVERABILITY.md).
-
-## Primeiro caso de uso
-
-O nicho inicial é **clínicas de estética e negócios locais de estética**.
-
-A primeira oferta a ser validada é uma automação de **qualificação + follow-up de leads**: organizar novos contatos, registrar interesse, priorizar quem precisa de retorno e evitar que oportunidades fiquem esquecidas.
-
-A especificação está em [`docs/FIRST_OFFER.md`](docs/FIRST_OFFER.md).
+O fetcher de URLs possui proteções SSRF adequadas ao MVP, mas ainda não deve ser considerado uma sandbox de rede pronta para exposição pública irrestrita.
 
 ## Rodando localmente
 
@@ -212,9 +190,9 @@ python -m app.db.seed
 uvicorn app.main:app --reload
 ```
 
-A documentação interativa fica em `/docs`.
+A documentação interativa da API fica em `/docs`.
 
-## Testes e lint
+## Testes
 
 Dentro de `backend/`:
 
@@ -223,27 +201,14 @@ ruff check .
 pytest -q
 ```
 
-O GitHub Actions repete lint, testes, migrations e seed em pushes e pull requests.
+O GitHub Actions valida lint, testes, migrations e seed.
 
-## Próximas etapas
+## Próximo recorte
 
-- **v0.3:** validar o Discovery Engine e melhorar os providers;
-- **v0.4:** análise estruturada por LLM, separando fatos e hipóteses;
-- **v0.5:** rascunhos de abordagem personalizados com revisão humana;
-- **v0.6:** demo personalizada com dados fictícios;
-- **v0.7:** CRM mais completo;
-- **v1.0:** validar o sistema com prospecção real.
+A próxima etapa planejada é **v0.3.2 — Web evidence expansion**: aumentar a quantidade de sinais objetivos úteis para um freelancer web, sem adicionar perfil, preço, chat, outreach ou demo ainda.
 
-Mais à frente quero experimentar um **Quality Monitor** para acompanhar automações implantadas e detectar falhas, conversas ruins, leads abandonados e regressões.
-
-## Segurança e privacidade
-
-O projeto é voltado a prospecção B2B legítima. A proposta não é coletar dados privados, contornar login/CAPTCHA, usar identidades falsas ou disparar spam em massa.
-
-Demos usam dados fictícios e qualquer futura mensagem comercial deverá passar por revisão humana antes de ser enviada.
+Veja o plano completo em [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Uso de IA no desenvolvimento
 
-Uso IA/Codex bastante durante o desenvolvimento, principalmente para implementação, revisão e testes. As decisões de produto, arquitetura, critérios de avaliação e validação final continuam sendo dirigidas e revisadas por mim.
-
-Uma parte do objetivo deste projeto também é aprender a trabalhar bem com desenvolvimento assistido por IA sem perder entendimento do sistema.
+Uso IA/Codex como ferramenta de implementação, revisão e testes. Arquitetura, decisões de produto, critérios de avaliação e validação final continuam sendo dirigidos e revisados por mim.
