@@ -1,6 +1,11 @@
 name: Live Calibration
 
 on:
+  push:
+    branches:
+      - feature/v0.3.1-opportunity-modules
+    paths:
+      - .github/workflows/calibration-live.yml
   workflow_dispatch:
 
 jobs:
