@@ -115,7 +115,10 @@ class WebDevelopmentOpportunityModule:
                         key=rule.signal,
                         title=rule.title,
                         certainty=FindingCertainty.UNKNOWN,
-                        detail="O analisador atual ainda não possui evidência suficiente para este ponto.",
+                        detail=(
+                            "O analisador atual ainda não possui evidência "
+                            "suficiente para este ponto."
+                        ),
                         contribution=0,
                         evidence_keys=(rule.signal,),
                     )
