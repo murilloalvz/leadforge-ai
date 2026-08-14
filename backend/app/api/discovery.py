@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.discovery import DiscoveryCandidate, DiscoveryRun
 from app.schemas.discovery import DiscoveryCandidateOut, DiscoveryRunOut, DiscoveryRunRequest
+from app.schemas.opportunity import OpportunityAssessmentOut
 from app.services.discovery.contracts import DiscoveryQuery
 from app.services.discovery.engine import DiscoveryEngine
 from app.services.discovery.factory import build_discovery_provider
@@ -13,6 +14,23 @@ from app.services.discovery.providers import DiscoveryProviderError
 
 router = APIRouter(prefix="/discovery-runs", tags=["discovery"])
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+def _opportunity_out(candidate: DiscoveryCandidate) -> OpportunityAssessmentOut | None:
+    assessment = candidate.opportunity_assessment
+    if assessment is None:
+        return None
+    return OpportunityAssessmentOut(
+        id=assessment.id,
+        service_category=assessment.service_category,
+        score=assessment.score,
+        confidence=assessment.confidence,
+        version=assessment.version,
+        summary=assessment.summary,
+        recommended_service=assessment.recommended_service,
+        findings=assessment.findings,
+        created_at=assessment.created_at,
+    )
 
 
 def _candidate_out(candidate: DiscoveryCandidate) -> DiscoveryCandidateOut:
@@ -28,12 +46,13 @@ def _candidate_out(candidate: DiscoveryCandidate) -> DiscoveryCandidateOut:
         phone=prospect.phone,
         source_url=candidate.source_url,
         source_category=candidate.source_category,
-        automation_score=candidate.automation_score,
-        automation_confidence=candidate.automation_confidence,
-        ai_discoverability_score=candidate.ai_discoverability_score,
-        ai_discoverability_confidence=candidate.ai_discoverability_confidence,
+        opportunity=_opportunity_out(candidate),
         priority_bucket=candidate.priority_bucket,
         site_audit_id=candidate.site_audit_id,
+        ai_discoverability_score=candidate.ai_discoverability_score,
+        ai_discoverability_confidence=candidate.ai_discoverability_confidence,
+        automation_score=candidate.automation_score,
+        automation_confidence=candidate.automation_confidence,
     )
 
 
