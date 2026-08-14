@@ -1,3 +1,4 @@
+from app.core.config import get_settings
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryProvider
 from app.services.discovery.providers import (
     MockDiscoveryProvider,
@@ -32,7 +33,11 @@ MOCK_BUSINESSES = (
 
 def build_discovery_provider(name: str) -> DiscoveryProvider:
     if name == "openstreetmap":
-        return OpenStreetMapOverpassProvider()
+        settings = get_settings()
+        return OpenStreetMapOverpassProvider(
+            endpoint=settings.overpass_endpoint,
+            timeout_seconds=settings.overpass_timeout_seconds,
+        )
     if name == "mock":
         return MockDiscoveryProvider(MOCK_BUSINESSES)
     raise ValueError(f"Provider de discovery não suportado: {name}")
