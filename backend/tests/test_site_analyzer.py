@@ -218,3 +218,32 @@ def test_brazilian_city_state_pair_counts_as_location_signal() -> None:
     result = SiteAnalyzer(fetcher=fetcher).analyze(page_url)
 
     assert result.signals["location_clearly_described"] is True
+
+
+def test_long_specific_title_is_still_descriptive() -> None:
+    page_url = "https://beauty.example/"
+    robots_url = "https://beauty.example/robots.txt"
+    title = (
+        "Beauty S.A. — Clínica especializada em Estética Facial e "
+        "Rejuvenescimento em Belo Horizonte"
+    )
+    html = f"""
+    <html>
+      <head><title>{title}</title></head>
+      <body>
+        <h1>Beauty S.A.</h1>
+        <p>Serviços e tratamentos de estética facial.</p>
+      </body>
+    </html>
+    """
+    fetcher = FakeFetcher(
+        {
+            page_url: html_response(page_url, html),
+            robots_url: robots_response(robots_url, "User-agent: *\nAllow: /\n"),
+        }
+    )
+
+    result = SiteAnalyzer(fetcher=fetcher).analyze(page_url)
+
+    assert len(title) > 75
+    assert result.signals["descriptive_titles"] is True
