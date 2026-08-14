@@ -4,112 +4,84 @@ O Discovery Engine não deve depender de uma única fonte. Providers transformam
 
 ## Estratégia atual
 
-Providers suportados:
+- `auto` — usa Geoapify quando uma chave está configurada; senão usa OpenStreetMap/Overpass como fallback experimental;
+- `geoapify` — provider preferido para discovery persistente;
+- `openstreetmap` — Overpass experimental/fallback;
+- `mock` — dados fictícios e determinísticos para testes.
 
-- `auto` — usa Google Places quando uma chave está configurada; caso contrário usa OpenStreetMap/Overpass como fallback experimental;
-- `google_places` — Google Places API (New), provider preferido para uso real quando configurado;
-- `openstreetmap` — OpenStreetMap/Overpass, útil para experimentação e fallback, mas não tratado como infraestrutura de produção;
-- `mock` — dados fictícios e determinísticos para testes e desenvolvimento sem rede.
+## Por que Geoapify
 
-## Google Places API (New)
+Na pesquisa da v0.3.6, Google Places foi descartado como provider persistente porque suas políticas restringem caching/storage do conteúdo de Places além das exceções permitidas. Isso não combina com o fluxo do LeadForge, que precisa persistir prospects, evidências e exports.
 
-Implementação: Text Search (New), por HTTP POST.
+Geoapify documenta explicitamente que resultados do Places API podem ser armazenados e redistribuídos, desde que as atribuições exigidas sejam respeitadas. A fonte principal dos dados de Places é OpenStreetMap.
 
-Configuração:
+Referências:
+
+- https://www.geoapify.com/places-api/
+- https://www.geoapify.com/terms-and-conditions/
+- https://www.openstreetmap.org/copyright
+- https://developers.google.com/maps/documentation/places/web-service/policies
+
+## Configuração
 
 ```env
-LEADFORGE_GOOGLE_PLACES_API_KEY=
-LEADFORGE_GOOGLE_PLACES_ENDPOINT=https://places.googleapis.com/v1/places:searchText
-LEADFORGE_GOOGLE_PLACES_TIMEOUT_SECONDS=12
+LEADFORGE_GEOAPIFY_API_KEY=
+LEADFORGE_GEOAPIFY_SEARCH_ENDPOINT=https://api.geoapify.com/v1/geocode/search
+LEADFORGE_GEOAPIFY_DETAILS_ENDPOINT=https://api.geoapify.com/v2/place-details
+LEADFORGE_GEOAPIFY_TIMEOUT_SECONDS=12
 ```
 
-O provider não contém chave default e falha explicitamente quando `google_places` é solicitado sem credencial.
+Nenhuma chave possui valor default ou deve ser commitada.
 
-### Query
+## Fluxo Geoapify
 
-Uma busca como:
+Para preservar a busca livre `nicho + cidade + UF`, o provider usa duas etapas pequenas:
 
-```text
-niche=barbearia
-city=Campinas
-state=SP
-```
+1. Forward Geocoding com `type=amenity`, query textual e filtro Brasil;
+2. Place Details por `place_id` para obter website/telefone quando disponíveis.
 
-é enviada como uma consulta textual equivalente a:
+A busca é limitada a no máximo 20 candidatos por chamada. O provider normaliza somente os campos usados pelo LeadForge:
 
-```text
-barbearia em Campinas, SP, Brasil
-```
-
-O `pageSize` é limitado a no máximo 20 por chamada, mesmo que o contrato do LeadForge permita um `limit` maior.
-
-### Field mask
-
-O provider solicita somente:
-
-```text
-places.id
-places.displayName
-places.formattedAddress
-places.primaryType
-places.websiteUri
-places.nationalPhoneNumber
-places.googleMapsUri
-```
-
-Não solicita reviews, fotos, horários, rating, atmosfera ou outros campos que não são necessários para o MVP.
-
-Essa lista é propositalmente explícita. Google Places exige FieldMask e a cobrança depende dos campos solicitados; portanto adicionar um campo novo é também uma decisão de custo/produto e deve ser revisado.
-
-### Dados persistidos
-
-O contrato normalizado recebe:
-
-- ID externo do Google;
+- place ID;
 - nome;
-- categoria/primary type;
-- cidade e UF da query;
-- website, quando retornado;
-- telefone comercial, quando retornado;
-- URL do Google Maps como provenance/source URL;
-- payload reduzido com place ID, endereço formatado e primary type.
+- categoria;
+- cidade/UF;
+- endereço formatado;
+- website e telefone comercial quando disponíveis;
+- provenance do provider.
 
-Não persistimos o objeto inteiro retornado pelo Google.
+Não persistimos o payload inteiro de Place Details.
 
-## Custo
+## Attribution
 
-A tabela oficial de preços deve ser consultada antes de aumentar volume ou campos.
+Dados Geoapify/OSM devem manter atribuição adequada. OpenStreetMap attribution é obrigatória; no plano gratuito do Geoapify, Geoapify attribution também é exigida.
 
-Em agosto de 2026, os campos `websiteUri` e `nationalPhoneNumber` colocam Text Search na faixa Enterprise. A tabela oficial vigente informa uma franquia mensal e preço por mil eventos após a franquia. Esses valores podem mudar, portanto a documentação do Google é a fonte de verdade, não valores hardcoded no LeadForge.
+Exports ou futura interface que exponham esses dados devem carregar a informação de provenance necessária para permitir essa atribuição.
 
-Referências oficiais:
+## Custo e volume
 
-- https://developers.google.com/maps/documentation/places/web-service/text-search
-- https://developers.google.com/maps/documentation/places/web-service/data-fields
-- https://developers.google.com/maps/billing-and-pricing/pricing
+Geoapify usa modelo por créditos/requisições. A versão atual faz uma busca e, para cada candidato normalizado, uma chamada pequena de Place Details. Portanto aumentar `limit` aumenta também o consumo de API.
+
+A v0.3.6 limita discovery externo a pequenas buscas interativas e não implementa coleta em massa.
 
 ## OpenStreetMap/Overpass
 
-O provider Overpass permanece disponível, mas é experimental.
-
-Durante a v0.3.5, runners cloud do GitHub Actions observaram 502 e timeouts mesmo com consultas pequenas. A query foi reduzida e os erros são classificados como timeout, HTTP externo ou resposta inválida.
+Overpass continua disponível sem credencial, mas experimental. Na v0.3.5 runners cloud observaram 502/timeouts mesmo com consultas pequenas.
 
 Regras:
 
 - consultas pequenas e user-triggered;
 - sem paralelismo para aumentar throughput;
-- sem coleta em massa usando infraestrutura pública compartilhada;
-- cobertura ausente não vira evidência de ausência;
-- disponibilidade do Overpass não é gate de CI.
+- sem bulk harvesting de infraestrutura pública compartilhada;
+- missing fields permanecem unknown;
+- disponibilidade do Overpass não é gate da CI normal.
 
 ## `auto`
 
-`provider="auto"` é o default da API.
-
-Com `LEADFORGE_GOOGLE_PLACES_API_KEY` configurada:
+Com `LEADFORGE_GEOAPIFY_API_KEY`:
 
 ```text
-auto → google_places
+auto → geoapify
 ```
 
 Sem chave:
@@ -118,24 +90,14 @@ Sem chave:
 auto → openstreetmap
 ```
 
-O `DiscoveryRun.provider` persiste o nome real do provider usado, não a palavra `auto`.
+`DiscoveryRun.provider` registra o provider real utilizado.
 
 ## Testes
 
-Google Places é testado sem credencial real usando `httpx.MockTransport`.
+Geoapify é testado sem segredo real via `httpx.MockTransport`. Os testes cobrem query, filtro Brasil, limite, Place Details, normalização, payload minimizado, chave ausente e erros externos.
 
-Os testes verificam:
+Overpass mantém testes determinísticos de query, payload, HTTP externo e timeout.
 
-- API key no header correto;
-- FieldMask sem campos desnecessários;
-- query e limite;
-- normalização para `DiscoveredBusiness`;
-- minimização do payload persistido;
-- erro explícito sem API key;
-- tratamento seguro de HTTP 429.
+## Gate restante
 
-Overpass continua com testes determinísticos de query, payload, HTTP externo e timeout.
-
-## Limitação da v0.3.6
-
-A integração Google Places pode ser validada deterministicamente sem segredo, mas uma validação real de cobertura/latência depende de uma API key habilitada e billing configurado. Nenhuma credencial deve ser commitada no repositório.
+Para validar o provider real ainda falta configurar uma chave Geoapify fora do repositório e executar 2–3 buscas pequenas, medindo latência, quantidade de empresas, cobertura de website/telefone e falhas.
