@@ -1,205 +1,237 @@
 # LeadForge AI
 
-**AI-powered B2B opportunity intelligence platform for discovering businesses with automation potential, explaining why they are promising prospects, generating personalized outreach, and preparing tailored demos.**
+O LeadForge AI é um projeto para encontrar empresas que provavelmente têm espaço para automação, organizar essas oportunidades e transformar sinais públicos em uma abordagem comercial mais bem pensada.
 
-> Status: early-stage portfolio project / MVP in development.
+A ideia é simples: em vez de sair mandando mensagem genérica para qualquer empresa, o sistema tenta entender o contexto do negócio, identificar possíveis gargalos e sugerir uma automação que realmente faça sentido para aquele caso.
 
-## Why this project exists
+> Status: projeto em fase inicial / MVP em desenvolvimento.
 
-Small businesses often run lead capture, qualification, follow-up, scheduling, and reporting through fragmented manual workflows. LeadForge AI is designed to identify those automation opportunities using public business information, rank prospects transparently, and help prepare relevant, evidence-based outreach.
+## Ideia do projeto
 
-The project is intentionally built as a real product engineering exercise rather than a generic demo. It combines AI engineering, data engineering, automation, B2B intelligence, software architecture, and evaluation.
-
-## Core workflow
+O fluxo que eu quero construir é mais ou menos este:
 
 ```text
-Business discovery
+Encontrar empresas
       ↓
-Public-data enrichment
+Coletar informações públicas
       ↓
-Evidence collection
+Identificar sinais de oportunidade
       ↓
-Opportunity scoring
+Dar um score para os prospects
       ↓
-AI opportunity analysis
+Sugerir uma automação
       ↓
-Recommended automation
+Gerar uma abordagem personalizada
       ↓
-Personalized offer
+Montar uma demo da solução
       ↓
-Tailored demo
+Revisão humana
       ↓
-Human review
-      ↓
-CRM pipeline
+CRM / acompanhamento
 ```
 
-## Product principles
+O objetivo não é criar uma máquina de spam. No MVP, nenhuma mensagem deve ser enviada automaticamente sem revisão.
 
-- Facts, inferences, hypotheses, and recommendations must remain clearly separated.
-- The scoring system should be deterministic and explainable.
-- No outreach is sent without human review in the MVP.
-- No private or sensitive personal data should be collected.
-- No bypassing logins, CAPTCHAs, anti-bot protections, or platform restrictions.
-- Demos must use fictitious customer data.
-- The application must run in demo mode without external credentials.
+## Primeiro nicho
 
-## Initial target market
+A primeira versão vai focar em clínicas e negócios de estética no Brasil.
 
-The first vertical is **Brazilian aesthetics clinics and local aesthetics businesses**.
+Escolhi um nicho só para validar a ideia sem tentar resolver tudo de uma vez. Depois, a arquitetura deve permitir adaptar o projeto para outros tipos de negócio, como:
 
-The architecture should later support other verticals such as:
+- imobiliárias;
+- academias;
+- clínicas odontológicas;
+- escolas e cursos;
+- oficinas;
+- energia solar;
+- prestadores de serviço;
+- e-commerce.
 
-- real estate agencies;
-- gyms;
-- dental clinics;
-- schools and courses;
-- workshops;
-- solar-energy companies;
-- professional services;
-- e-commerce businesses.
+## O que o sistema deve analisar
 
-## MVP scope
+Para cada empresa, quero guardar os fatos encontrados e separar isso das interpretações.
 
-### v0.1 — Foundation
+Exemplo:
 
-- project structure;
-- FastAPI backend;
-- database and migrations;
-- prospect models;
-- fictional seed data;
-- deterministic Opportunity Scoring v1;
-- minimal API for prospect listing/detail;
-- tests and linting.
+**Fato observado:** o site possui botão de WhatsApp.
 
-### v0.2 — Evidence & enrichment
+**Hipótese:** o WhatsApp pode ser um canal importante de entrada de leads.
 
-- provider interfaces;
-- public-source enrichment;
-- evidence storage;
-- confidence scoring;
-- deduplication improvements.
+**Possível oportunidade:** automação de qualificação e follow-up.
 
-### v0.3 — AI Opportunity Analyst
+Essa separação é importante para não inventar problemas ou métricas que não existem.
 
-- structured LLM analysis;
-- observed facts vs. hypotheses;
-- recommended automations;
-- Pydantic-validated outputs;
-- mock and real LLM providers.
+## Opportunity Score
 
-### v0.4 — Personalized outreach
+Os prospects terão um score de 0 a 100.
 
-- evidence-grounded offer generation;
-- WhatsApp and email variants;
-- human-review queue;
-- outreach history.
+Esse score não deve ser simplesmente um número inventado por um modelo de IA. A ideia é usar regras transparentes e ajustáveis.
+
+Alguns sinais que podem entrar no cálculo:
+
+- WhatsApp como canal visível de contato;
+- presença digital ativa;
+- vários serviços oferecidos;
+- ausência de um sistema de agendamento visível;
+- formulário de contato simples;
+- sinais de demanda;
+- automação já existente;
+- quantidade insuficiente de informações;
+- sinais de inatividade.
+
+O resultado deve mostrar não só o score final, mas também o que aumentou ou diminuiu a pontuação.
+
+## Roadmap
+
+### v0.1 — Fundação
+
+- estrutura do projeto;
+- backend em FastAPI;
+- banco de dados;
+- modelos de prospects;
+- dados fictícios para desenvolvimento;
+- scoring inicial;
+- API para listar e visualizar prospects;
+- testes e lint.
+
+### v0.2 — Coleta e evidências
+
+- interfaces para diferentes fontes de dados;
+- enriquecimento com dados públicos;
+- histórico das evidências;
+- confiança dos sinais;
+- melhorias na deduplicação.
+
+### v0.3 — Análise com IA
+
+- análise estruturada dos prospects;
+- separação entre fatos e hipóteses;
+- sugestão de automações;
+- respostas validadas com Pydantic;
+- provider mock para rodar sem API externa.
+
+### v0.4 — Oferta personalizada
+
+- geração de abordagem baseada nas evidências;
+- versões para WhatsApp e e-mail;
+- fila de revisão humana;
+- histórico de contato.
 
 ### v0.5 — Demo Generator
 
-- reusable solution templates;
-- prospect-specific demo views;
-- fictional lead datasets;
-- demo preview links.
+- templates de automação;
+- demos personalizadas para cada prospect;
+- dados de clientes totalmente fictícios;
+- preview da solução antes do contato.
 
-### v0.6 — CRM workflow
+### v0.6 — CRM
 
-- prospect stages;
-- notes;
-- follow-up dates;
-- activity history;
-- pipeline metrics.
+- status dos prospects;
+- notas;
+- follow-ups;
+- histórico de atividades;
+- métricas do funil.
 
-### v1.0 — Real-world validation
+### v1.0 — Validação real
 
-- first production-like prospect workflow;
-- real prospect research from permitted sources;
-- measured outreach and response outcomes;
-- documented case study.
+- uso com prospects reais em fontes permitidas;
+- primeiras abordagens reais;
+- acompanhamento de respostas;
+- estudo de caso do projeto.
 
-### Future
+## Futuro
 
-- Automation Engine;
-- AI Conversation Quality Monitor;
-- recurring automation health reports;
-- multi-tenant SaaS architecture.
+Depois que a parte de prospecção estiver funcionando, quero explorar duas extensões principais:
 
-## Planned stack
+### Automation Engine
 
-**Backend**
+Templates reaproveitáveis das automações que forem vendidas aos clientes.
+
+### AI Quality Monitor
+
+Uma camada de acompanhamento das automações em produção, analisando coisas como:
+
+- falhas;
+- leads abandonados;
+- respostas ruins do agente;
+- conversas que deveriam ter ido para um humano;
+- taxa de resolução;
+- conversão;
+- qualidade ao longo do tempo.
+
+Essa parte pode acabar virando também um produto recorrente de manutenção.
+
+## Stack planejada
+
+### Backend
 
 - Python 3.12+
 - FastAPI
 - Pydantic
 - SQLAlchemy
 - Alembic
-- SQLite for local MVP, PostgreSQL-ready architecture
+- SQLite no começo, com possibilidade de migrar para PostgreSQL
 
-**Frontend**
+### Frontend
 
-- Next.js + TypeScript, once the backend foundation is stable
+Provavelmente Next.js + TypeScript depois que o backend estiver mais estável.
 
-**Quality**
+### Qualidade
 
 - pytest
 - Ruff
 - type checking
-- structured logging
+- logs estruturados
 
-## Opportunity scoring
+## Estrutura planejada
 
-LeadForge does not rely on a mysterious LLM-generated score. The main opportunity score is intended to be deterministic and auditable.
+```text
+leadforge-ai/
+├── backend/
+├── frontend/
+├── docs/
+├── sample_data/
+├── scripts/
+├── tests/
+├── AGENTS.md
+├── .env.example
+├── .gitignore
+└── README.md
+```
 
-Example signals may include:
+## Segurança e privacidade
 
-- WhatsApp as a visible lead channel;
-- multiple services;
-- absence of a visible booking flow;
-- simple contact forms;
-- active public presence;
-- apparent demand signals;
-- visible advanced automation;
-- insufficient evidence;
-- inactivity signals.
+O projeto é voltado para prospecção B2B legítima.
 
-Each result should expose the individual score components, confidence, evidence, and explanation.
+Algumas regras do projeto:
 
-## AI-assisted development
+- não coletar dados privados;
+- não tentar burlar login ou CAPTCHA;
+- não guardar senhas ou tokens no repositório;
+- não enviar mensagens em massa automaticamente;
+- não inventar métricas sobre empresas;
+- não usar identidade falsa;
+- demos devem usar dados fictícios;
+- deve existir opção `do_not_contact` no CRM.
 
-This project is developed with extensive AI-assisted software engineering using Codex. Product direction, architecture, evaluation criteria, security constraints, testing strategy, and final validation are human-directed.
+## Uso de IA no desenvolvimento
 
-The goal is not to hide AI usage, but to demonstrate the ability to use modern engineering tools while maintaining technical understanding and ownership of the system.
+Esse projeto está sendo desenvolvido com bastante apoio de ferramentas de IA, principalmente Codex.
 
-## Safety and privacy
+A IA pode escrever boa parte do código, mas a intenção é manter controle sobre arquitetura, regras de negócio, testes, segurança e decisões de produto. Também quero entender o que está sendo construído, e não só gerar código sem revisar.
 
-LeadForge is intended for legitimate B2B prospecting and automation consulting.
+## Documentação
 
-It should not be used for:
+As decisões de arquitetura ficam em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-- collecting private personal information;
-- bypassing access controls;
-- automated mass spam;
-- fake identities;
-- deceptive claims;
-- fabricated business metrics;
-- manipulation of ratings or reviews.
+As instruções para agentes de código ficam em [`AGENTS.md`](AGENTS.md).
 
-A `do_not_contact` state will be part of the CRM model.
+## Rodando localmente
 
-## Architecture
+A aplicação ainda não foi implementada. As instruções de instalação e execução serão adicionadas junto da v0.1.
 
-Architecture decisions and module boundaries are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## Objetivo inicial
 
-Development rules for AI coding agents are documented in [`AGENTS.md`](AGENTS.md).
+O primeiro objetivo do LeadForge AI não é virar uma plataforma enorme.
 
-## Running locally
-
-The application is not implemented yet. Local setup instructions will be added as part of v0.1.
-
-## Roadmap philosophy
-
-The project will be developed incrementally. Each version must remain testable and understandable before the next capability is added.
-
-The first success criterion is not “build a huge AI platform”. It is:
-
-> Build a small, reliable system that can identify and rank plausible automation opportunities, then validate whether those rankings help produce real conversations with businesses.
+É construir algo pequeno que consiga encontrar e priorizar boas oportunidades de automação e, depois, testar se essas oportunidades realmente ajudam a gerar conversas com empresas.
