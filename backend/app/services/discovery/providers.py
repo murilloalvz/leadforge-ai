@@ -42,7 +42,6 @@ def _query_body(query: DiscoveryQuery) -> str:
     if any(term in normalized_niche for term in ("estetica", "aesthetic", "beauty")):
         selectors = [
             'nwr["shop"="beauty"](area.searchArea);',
-            'nwr["beauty"](area.searchArea);',
             'nwr["name"~"est[eé]tica|aesthetic|beauty",i](area.searchArea);',
         ]
     else:
@@ -50,14 +49,16 @@ def _query_body(query: DiscoveryQuery) -> str:
         selectors = [f'nwr["name"~"{pattern}",i](area.searchArea);']
 
     joined = "\n  ".join(selectors)
+    output_limit = min(max(query.limit * 4, query.limit), 100)
     return (
-        "[out:json][timeout:20];\n"
-        f'area["name"="{city}"]["boundary"="administrative"]'
-        '["admin_level"~"8|9"]->.searchArea;\n'
+        "[out:json][timeout:15];\n"
+        f'rel["name"="{city}"]["boundary"="administrative"]'
+        '["admin_level"="8"]->.city;\n'
+        ".city map_to_area -> .searchArea;\n"
         "(\n"
         f"  {joined}\n"
         ");\n"
-        "out center tags;"
+        f"out center tags {output_limit};"
     )
 
 
@@ -162,8 +163,18 @@ class OpenStreetMapOverpassProvider:
             response = self.client.post(self.endpoint, data={"data": overpass_query})
             response.raise_for_status()
             payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise DiscoveryProviderError("Falha ao consultar a fonte OpenStreetMap") from exc
+        except httpx.TimeoutException as exc:
+            raise DiscoveryProviderError(
+                "Fonte OpenStreetMap excedeu o tempo limite"
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise DiscoveryProviderError(
+                f"Fonte OpenStreetMap respondeu HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise DiscoveryProviderError("Falha de rede ao consultar a fonte OpenStreetMap") from exc
+        except ValueError as exc:
+            raise DiscoveryProviderError("Resposta inválida da fonte OpenStreetMap") from exc
 
         elements = payload.get("elements")
         if not isinstance(elements, list):
