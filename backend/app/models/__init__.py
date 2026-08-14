@@ -8,6 +8,7 @@ from app.models.entities import (
     Prospect,
     ScoreComponent,
 )
+from app.models.opportunity_assessment import OpportunityAssessment
 from app.models.site_audit import SiteAudit
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "DiscoveryRun",
     "Evidence",
     "Opportunity",
+    "OpportunityAssessment",
     "OutreachDraft",
     "Prospect",
     "ScoreComponent",
