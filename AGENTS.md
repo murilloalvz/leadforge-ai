@@ -8,24 +8,41 @@ Build LeadForge AI incrementally as a real B2B opportunity intelligence product.
 
 ## Current scope
 
-The current milestone is **v0.2 — Site Analyzer**.
+The current milestone is **v0.3 — Discovery Engine**.
 
 Do not implement later roadmap items unless explicitly requested.
 
-v0.2 includes:
+v0.3 includes:
 
-- the v0.1 backend foundation;
-- deterministic Automation Opportunity Scoring;
-- deterministic AI Discoverability scoring;
-- one-URL-at-a-time public site analysis;
-- safe HTTP fetching with SSRF-oriented validation;
-- redirect, timeout, and response-size limits;
-- `robots.txt`, `noindex`, `X-Robots-Tag`, HTML text, headings, and JSON-LD analysis;
-- persisted site audits that may optionally reference a prospect;
-- site-audit API endpoints;
-- tests, migrations, CI, and accurate documentation.
+- the v0.2 backend and Site Analyzer;
+- a provider abstraction for business discovery;
+- a deterministic mock provider;
+- a small interactive OpenStreetMap/Overpass provider;
+- discovery runs by niche, city, state and result limit;
+- prospect deduplication and reuse;
+- preservation of source/provenance;
+- limited, opt-in site audits during a discovery run;
+- independent Automation Opportunity and AI Discoverability diagnostics;
+- explicit priority buckets instead of one blended opaque score;
+- persisted discovery runs and candidates;
+- API endpoints, tests, migrations, CI and accurate documentation.
 
-Do **not** implement broad web crawling, automatic business discovery, JavaScript execution, LLM analysis, outreach sending, demo generation, or production deployment yet.
+Do **not** implement broad crawling, bulk harvesting, JavaScript execution, LLM analysis, automated outreach, demo generation or production deployment yet.
+
+## Discovery rules
+
+Discovery providers must remain replaceable. The orchestration layer must not depend on provider-specific response shapes.
+
+Public sources must be used conservatively and in accordance with their usage policies. In particular:
+
+- do not turn public Overpass infrastructure into a bulk lead database;
+- keep discovery queries user-triggered, small and sequential;
+- do not parallelize provider calls merely to increase throughput;
+- preserve source attribution where required;
+- store only the business fields needed by the product;
+- avoid persisting unrelated or unnecessary personal/contact fields from raw provider payloads.
+
+Provider absence is not evidence of business absence. A missing website, WhatsApp or phone tag from a discovery source must remain unknown unless another explicit check establishes absence.
 
 ## Engineering rules
 
@@ -36,9 +53,9 @@ Do **not** implement broad web crawling, automatic business discovery, JavaScrip
 5. Run tests and linting after meaningful changes.
 6. Never hide failing tests or errors.
 7. Avoid placeholder TODOs when a small real implementation is possible.
-8. Keep external providers behind interfaces when credentials would otherwise be required.
+8. Keep external providers behind interfaces.
 9. The project must remain runnable in demo mode without secrets.
-10. Do not deploy, merge, send outreach, or perform destructive actions without explicit human authorization.
+10. Do not deploy, merge, send outreach or perform destructive actions without explicit human authorization.
 
 ## Data integrity
 
@@ -51,25 +68,19 @@ The product must distinguish:
 
 Never turn absence of evidence into evidence of absence.
 
-Every externally derived fact should preserve provenance such as source URL, observation time, and confidence when applicable.
+Every externally derived fact should preserve provenance such as source URL, observation time and confidence when applicable.
 
 ## Automation Opportunity Scoring
 
-The commercial opportunity score must be deterministic, explainable, and versioned.
+The commercial opportunity score must be deterministic, explainable and versioned.
 
 LLMs may later interpret evidence, but they must not silently generate the canonical score.
 
-Scoring output should expose:
-
-- total score;
-- confidence;
-- version;
-- components;
-- explanation.
+Scoring output should expose total score, confidence, version, components and explanation.
 
 `confidence` represents evidence coverage, not probability of closing a sale.
 
-Weights must be documented and should eventually be recalibrated from real outcomes.
+Discovery may contribute only signals actually supported by the source. Do not manufacture negative signals from missing provider fields.
 
 ## AI Discoverability
 
@@ -77,21 +88,11 @@ AI Discoverability is a separate diagnostic from Automation Opportunity Scoring.
 
 Never blend both into one opaque score.
 
-The site diagnostic may measure verifiable readiness signals such as:
+The site diagnostic may measure verifiable readiness signals such as public accessibility, indexability, relevant crawler access, textual content, clear identity/services/location, descriptive titles and useful structured data.
 
-- public accessibility;
-- indexability;
-- relevant crawler access;
-- important content available as text;
-- clear business identity, services, and location;
-- descriptive page titles;
-- useful structured data that matches visible content.
+Do not claim that a score predicts whether ChatGPT, Google or another AI system will recommend a business.
 
-Do not claim that a score predicts whether ChatGPT, Google, or another AI system will recommend a business.
-
-Do not award points for speculative "AI SEO hacks", `llms.txt`, invented markup, or other signals without reliable evidence that they matter.
-
-Store score version, confidence, supporting signals, and evidence separately from the automation score.
+The Discovery Engine may order candidates with explicit priority buckets, but the underlying scores and confidence values must remain independently visible.
 
 ## Site fetching and SSRF
 
@@ -101,14 +102,14 @@ At minimum:
 
 - allow only HTTP/HTTPS;
 - reject credentials embedded in URLs;
-- reject localhost, loopback, private, link-local, reserved, and metadata destinations;
+- reject localhost, loopback, private, link-local, reserved and metadata destinations;
 - validate DNS results before requests;
 - revalidate every redirect target;
 - use timeouts;
 - cap redirects;
 - cap response size;
 - avoid inheriting arbitrary proxy configuration;
-- do not execute JavaScript in v0.2.
+- do not execute JavaScript in the current milestone.
 
 The current DNS-before-connect validation is MVP protection, not perfect network isolation. Before exposing the fetcher as a public production service, harden it against DNS rebinding / TOCTOU and infrastructure-specific proxy behavior.
 
@@ -131,36 +132,26 @@ Never commit secrets.
 - `.env` must remain ignored.
 - `.env.example` contains placeholders only.
 - Do not log tokens or credentials.
-- Do not bypass authentication, CAPTCHAs, paywalls, rate limits, or anti-bot systems.
+- Do not bypass authentication, CAPTCHAs, paywalls, rate limits or anti-bot systems.
 - Prefer official APIs and permitted public sources.
 
 ## Privacy and outreach
 
 LeadForge is for legitimate B2B prospecting.
 
-Do not build features for:
+Do not build features for collecting private personal data, scraping unnecessary individual-level information, deceptive identities, fabricated claims, automated mass spam or review manipulation.
 
-- collecting private personal data;
-- scraping unnecessary individual-level information;
-- deceptive identities;
-- fabricated claims;
-- automated mass spam;
-- review manipulation;
-- unsolicited sending without a human-review layer.
-
-Any future outreach feature must default to `awaiting_human_review`.
-
-Support a `do_not_contact` state.
+Any future outreach feature must default to `awaiting_human_review` and support `do_not_contact`.
 
 ## Demo data
 
 All customer/lead data shown in demos must be fictional.
 
-Seed/demo companies should also be clearly marked fictional unless explicitly created from permitted public sources in a later milestone.
+Seed/demo companies should be clearly marked fictional unless explicitly created from permitted public sources.
 
 ## Git workflow
 
-- Do not push, merge, or create releases without explicit user authorization.
+- Do not push, merge or create releases without explicit user authorization.
 - Prefer focused commits with meaningful messages.
 - Do not rewrite history unless explicitly requested.
 - Before proposing a commit, summarize changed files and tests run.
