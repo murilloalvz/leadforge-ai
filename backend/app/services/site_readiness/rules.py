@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 SITE_READINESS_VERSION = "ai-discoverability-v1"
 
 
