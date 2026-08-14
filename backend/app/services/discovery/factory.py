@@ -1,6 +1,7 @@
 from app.core.config import get_settings
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryProvider
 from app.services.discovery.providers import (
+    GooglePlacesProvider,
     MockDiscoveryProvider,
     OpenStreetMapOverpassProvider,
 )
@@ -32,8 +33,14 @@ MOCK_BUSINESSES = (
 
 
 def build_discovery_provider(name: str) -> DiscoveryProvider:
+    settings = get_settings()
+    if name == "google_places":
+        return GooglePlacesProvider(
+            api_key=settings.google_places_api_key,
+            endpoint=settings.google_places_endpoint,
+            timeout_seconds=settings.google_places_timeout_seconds,
+        )
     if name == "openstreetmap":
-        settings = get_settings()
         return OpenStreetMapOverpassProvider(
             endpoint=settings.overpass_endpoint,
             timeout_seconds=settings.overpass_timeout_seconds,
