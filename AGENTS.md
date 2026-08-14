@@ -20,11 +20,12 @@ v0.1 includes:
 - Alembic migrations;
 - SQLite local database;
 - fictional seed data;
-- deterministic Opportunity Scoring v1;
+- deterministic Automation Opportunity Scoring;
+- deterministic AI Discoverability scoring foundation without a real crawler;
 - minimal prospect list/detail API;
-- tests;
-- linting and typing configuration;
-- updated README setup instructions.
+- tests and CI;
+- linting configuration;
+- updated setup documentation.
 
 Do **not** implement real crawling, LLM analysis, outreach sending, demo generation, or production deployment yet.
 
@@ -54,9 +55,9 @@ Never turn absence of evidence into evidence of absence.
 
 Every externally derived fact should eventually support provenance metadata such as source, timestamp, and confidence.
 
-## Opportunity scoring
+## Automation Opportunity Scoring
 
-The primary opportunity score must be deterministic and explainable.
+The commercial opportunity score must be deterministic, explainable, and versioned.
 
 LLMs may later interpret evidence, but they must not silently generate the canonical score.
 
@@ -64,10 +65,35 @@ Scoring output should expose:
 
 - total score;
 - confidence;
+- version;
 - components;
 - explanation.
 
-Weights must be configurable and documented.
+`confidence` represents evidence coverage, not probability of closing a sale.
+
+Weights must be configurable/documented and should eventually be recalibrated from real outcomes.
+
+## AI Discoverability
+
+AI Discoverability is a separate diagnostic from Automation Opportunity Scoring.
+
+Never blend both into one opaque score.
+
+The site diagnostic may measure verifiable readiness signals such as:
+
+- public accessibility;
+- indexability;
+- relevant crawler access;
+- important content available as text;
+- clear business identity, services, and location;
+- descriptive page titles;
+- useful structured data that matches visible content.
+
+Do not claim that a score predicts whether ChatGPT, Google, or another AI system will recommend a business.
+
+Do not award points for speculative "AI SEO hacks", `llms.txt`, invented markup, or other signals without reliable evidence that they matter.
+
+Store score version, components, confidence, and supporting evidence separately from the automation score.
 
 ## LLM rules
 
