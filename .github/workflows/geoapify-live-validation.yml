@@ -1,0 +1,48 @@
+name: Geoapify Live Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      LEADFORGE_GEOAPIFY_API_KEY: ${{ secrets.LEADFORGE_GEOAPIFY_API_KEY }}
+      LEADFORGE_GEOAPIFY_REPORT_PATH: artifacts/geoapify-live-validation.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Verify Geoapify secret
+        run: |
+          if [ -z "${LEADFORGE_GEOAPIFY_API_KEY}" ]; then
+            echo "::error::Configure LEADFORGE_GEOAPIFY_API_KEY as a repository secret."
+            exit 1
+          fi
+
+      - name: Run live validation
+        run: python scripts/validate_geoapify.py
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: geoapify-live-validation
+          path: backend/artifacts/geoapify-live-validation.json
+          if-no-files-found: error
+          retention-days: 14
