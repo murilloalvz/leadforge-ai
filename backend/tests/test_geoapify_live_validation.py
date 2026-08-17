@@ -1,6 +1,5 @@
-from scripts.validate_geoapify import summarize_query
-
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryQuery
+from scripts.validate_geoapify import summarize_query
 
 
 def test_live_validation_summary_does_not_export_contact_values() -> None:
