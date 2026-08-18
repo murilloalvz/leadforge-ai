@@ -7,10 +7,11 @@ from pathlib import Path
 from time import perf_counter
 
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryQuery
-from app.services.discovery.geoapify_relevance import (
-    RelevantGeoapifyProvider,
-    categories_for_niche,
+from app.services.discovery.geoapify_recovery import (
+    RecoveringGeoapifyProvider,
+    recovery_categories_for_niche,
 )
+from app.services.discovery.geoapify_relevance import categories_for_niche
 from app.services.discovery.providers import DiscoveryProviderError
 
 DEFAULT_QUERIES = (
@@ -26,6 +27,12 @@ def summarize_query(
     latency_ms: float,
 ) -> dict[str, object]:
     categorized = categories_for_niche(query.niche) is not None
+    recovery_enabled = recovery_categories_for_niche(query.niche) is not None
+    estimated_base_requests = 2 if categorized else 1
+    if recovery_enabled and len(businesses) < query.limit:
+        # Sparse mapped niches execute the primary Places lookup, the validated textual
+        # fallback and the broader city-boundary recovery lookup before enrichment.
+        estimated_base_requests += 2
     return {
         "query": {
             "niche": query.niche,
@@ -33,12 +40,16 @@ def summarize_query(
             "state": query.state,
             "limit": query.limit,
         },
-        "discovery_mode": "places_category_boundary" if categorized else "textual_fallback",
+        "discovery_mode": (
+            "places_category_boundary_with_recovery" if recovery_enabled else
+            "places_category_boundary" if categorized else
+            "textual_fallback"
+        ),
         "latency_ms": round(latency_ms, 1),
         "business_count": len(businesses),
         "website_count": sum(bool(item.website) for item in businesses),
         "phone_count": sum(bool(item.phone) for item in businesses),
-        "estimated_api_requests": len(businesses) + (2 if categorized else 1),
+        "estimated_api_requests": len(businesses) + estimated_base_requests,
         "businesses": [
             {
                 "external_id": item.external_id,
@@ -46,6 +57,7 @@ def summarize_query(
                 "category": item.category,
                 "website_present": bool(item.website),
                 "phone_present": bool(item.phone),
+                "discovery_mode": item.raw.get("discovery_mode") if item.raw else None,
             }
             for item in businesses
         ],
@@ -66,7 +78,7 @@ def main() -> int:
             "artifacts/geoapify-live-validation.json",
         )
     )
-    provider = RelevantGeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
+    provider = RecoveringGeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
 
     query_results: list[dict[str, object]] = []
     failures: list[dict[str, str]] = []
@@ -97,7 +109,7 @@ def main() -> int:
     )
 
     report = {
-        "schema_version": "geoapify-live-validation-v2",
+        "schema_version": "geoapify-live-validation-v3",
         "generated_at": datetime.now(UTC).isoformat(),
         "provider": "geoapify",
         "sample_query_count": len(DEFAULT_QUERIES),
