@@ -37,10 +37,29 @@ def categories_for_niche(niche: str) -> tuple[str, ...] | None:
     return None
 
 
+def _name_hints_for_niche(niche: str) -> tuple[str, ...]:
+    normalized = _normalize(niche)
+    if any(term in normalized for term in ("estetica", "aesthetic", "beauty")):
+        return ("estet", "aesthetic", "beauty", "beleza", "spa", "nail", "laser")
+    if any(term in normalized for term in ("dentista", "odontologia", "odontologica")):
+        return ("dent", "odont")
+    if any(term in normalized for term in ("academia", "fitness", "gym")):
+        return ("academia", "fitness", "gym", "crossfit")
+    return ()
+
+
 def _categories_from(value: Any) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
     return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
+
+
+def _result_categories(result: dict[str, Any]) -> tuple[str, ...]:
+    categories = _categories_from(result.get("categories"))
+    category = result.get("category")
+    if not categories and isinstance(category, str) and category.strip():
+        return (category.strip(),)
+    return categories
 
 
 def _matches_categories(observed: tuple[str, ...], requested: tuple[str, ...]) -> bool:
@@ -49,6 +68,26 @@ def _matches_categories(observed: tuple[str, ...], requested: tuple[str, ...]) -
         for actual in observed
         for expected in requested
     )
+
+
+def _name_matches_niche(name: str, niche: str) -> bool:
+    normalized_name = _normalize(name)
+    return any(hint in normalized_name for hint in _name_hints_for_niche(niche))
+
+
+def _looks_like_street_name(name: str) -> bool:
+    normalized = _normalize(name)
+    prefixes = (
+        "rua ",
+        "avenida ",
+        "av. ",
+        "rodovia ",
+        "estrada ",
+        "travessa ",
+        "alameda ",
+        "praca ",
+    )
+    return normalized.startswith(prefixes)
 
 
 def _category_label(categories: tuple[str, ...]) -> str | None:
@@ -84,6 +123,26 @@ def _diversify_by_brand(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 del groups[key]
         order = [key for key in order if key in groups]
     return diversified
+
+
+def _dedupe_candidates(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen_place_ids: set[str] = set()
+    seen_name_address: set[tuple[str, str]] = set()
+    for item in items:
+        place_id = str(item["place_id"])
+        if place_id in seen_place_ids:
+            continue
+        formatted = item.get("formatted")
+        address_key = _normalize(formatted) if isinstance(formatted, str) else ""
+        exact_key = (_normalize(str(item["name"])), address_key)
+        if address_key and exact_key in seen_name_address:
+            continue
+        seen_place_ids.add(place_id)
+        if address_key:
+            seen_name_address.add(exact_key)
+        deduped.append(item)
+    return deduped
 
 
 class RelevantGeoapifyProvider(GeoapifyProvider):
@@ -180,8 +239,6 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
             raise DiscoveryProviderError("Resposta inesperada do Geoapify em places-search")
 
         candidates: list[dict[str, Any]] = []
-        seen_place_ids: set[str] = set()
-        seen_name_address: set[tuple[str, str]] = set()
         for feature in features:
             if not isinstance(feature, dict):
                 continue
@@ -190,27 +247,18 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
                 continue
 
             place_id = properties.get("place_id")
-            name = properties.get("name") or properties.get("address_line1")
+            name = properties.get("name")
             categories = _categories_from(properties.get("categories"))
             if (
                 not isinstance(place_id, str)
                 or not isinstance(name, str)
                 or not name.strip()
+                or _looks_like_street_name(name)
                 or not _matches_categories(categories, requested_categories)
             ):
                 continue
-            if place_id in seen_place_ids:
-                continue
 
             formatted = properties.get("formatted")
-            address_key = _normalize(formatted) if isinstance(formatted, str) else ""
-            exact_key = (_normalize(name), address_key)
-            if address_key and exact_key in seen_name_address:
-                continue
-
-            seen_place_ids.add(place_id)
-            if address_key:
-                seen_name_address.add(exact_key)
             candidates.append(
                 {
                     "place_id": place_id,
@@ -221,10 +269,81 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
                     "state_code": properties.get("state_code"),
                     "website": properties.get("website"),
                     "contact": properties.get("contact"),
+                    "discovery_mode": "places_category_boundary",
                 }
             )
 
-        return _diversify_by_brand(candidates)
+        return _dedupe_candidates(candidates)
+
+    def _validated_textual_candidates(
+        self,
+        query: DiscoveryQuery,
+        requested_categories: tuple[str, ...],
+    ) -> list[dict[str, Any]]:
+        """Recover sparse mapped niches without trusting free-text results blindly."""
+        search_limit = min(max(query.limit * 4, query.limit), 20)
+        payload = self._get_json(
+            self.search_endpoint,
+            {
+                "text": f"{query.niche}, {query.city}, {query.state}, Brasil",
+                "type": "amenity",
+                "filter": "countrycode:br",
+                "lang": "pt",
+                "limit": search_limit,
+                "format": "json",
+                "apiKey": self.api_key,
+            },
+            operation="validated-textual-fallback",
+        )
+        results = payload.get("results")
+        if not isinstance(results, list):
+            raise DiscoveryProviderError(
+                "Resposta inesperada do Geoapify em validated-textual-fallback"
+            )
+
+        candidates: list[dict[str, Any]] = []
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            place_id = result.get("place_id")
+            name = result.get("name")
+            categories = _result_categories(result)
+            if (
+                not isinstance(place_id, str)
+                or not isinstance(name, str)
+                or not name.strip()
+                or _looks_like_street_name(name)
+            ):
+                continue
+
+            city = result.get("city")
+            if isinstance(city, str) and _normalize(city) != _normalize(query.city):
+                continue
+            state_code = result.get("state_code")
+            if isinstance(state_code, str) and state_code.upper() != query.state.upper():
+                continue
+
+            category_match = _matches_categories(categories, requested_categories)
+            name_match = _name_matches_niche(name, query.niche)
+            if not category_match and not name_match:
+                continue
+
+            formatted = result.get("formatted")
+            candidates.append(
+                {
+                    "place_id": place_id,
+                    "name": name.strip(),
+                    "categories": categories,
+                    "formatted": formatted if isinstance(formatted, str) else None,
+                    "city": city,
+                    "state_code": state_code,
+                    "website": result.get("website"),
+                    "contact": result.get("contact"),
+                    "discovery_mode": "validated_textual_fallback",
+                }
+            )
+
+        return _dedupe_candidates(candidates)
 
     def _to_business(
         self,
@@ -259,7 +378,9 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
                 "formatted_address": candidate.get("formatted"),
                 "categories": list(categories),
                 "data_source": "openstreetmap",
-                "discovery_mode": "places_category_boundary",
+                "discovery_mode": candidate.get(
+                    "discovery_mode", "places_category_boundary"
+                ),
             },
         )
 
@@ -269,4 +390,7 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
             return super().discover(query)
 
         candidates = self._places_candidates(query, requested_categories)
-        return tuple(self._to_business(query, item) for item in candidates[: query.limit])
+        if len(candidates) < query.limit:
+            candidates.extend(self._validated_textual_candidates(query, requested_categories))
+        selected = _diversify_by_brand(_dedupe_candidates(candidates))[: query.limit]
+        return tuple(self._to_business(query, item) for item in selected)
