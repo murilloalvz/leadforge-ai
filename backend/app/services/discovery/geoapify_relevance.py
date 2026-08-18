@@ -145,7 +145,9 @@ class RelevantGeoapifyProvider(GeoapifyProvider):
             city = result.get("city") or result.get("name")
             state_code = result.get("state_code")
             city_matches = isinstance(city, str) and _normalize(city) == _normalize(query.city)
-            state_matches = not isinstance(state_code, str) or state_code.upper() == query.state.upper()
+            state_matches = (
+                not isinstance(state_code, str) or state_code.upper() == query.state.upper()
+            )
             if city_matches and state_matches:
                 self._city_place_cache[cache_key] = place_id
                 return place_id
