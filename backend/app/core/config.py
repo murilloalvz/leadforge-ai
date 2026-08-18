@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     overpass_timeout_seconds: float = 25.0
     geoapify_api_key: str = ""
     geoapify_search_endpoint: str = "https://api.geoapify.com/v1/geocode/search"
+    geoapify_places_endpoint: str = "https://api.geoapify.com/v2/places"
     geoapify_details_endpoint: str = "https://api.geoapify.com/v2/place-details"
     geoapify_timeout_seconds: float = 12.0
 
