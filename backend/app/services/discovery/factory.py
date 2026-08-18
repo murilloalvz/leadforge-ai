@@ -1,10 +1,7 @@
 from app.core.config import get_settings
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryProvider
-from app.services.discovery.providers import (
-    GeoapifyProvider,
-    MockDiscoveryProvider,
-    OpenStreetMapOverpassProvider,
-)
+from app.services.discovery.geoapify_recovery import RecoveringGeoapifyProvider
+from app.services.discovery.providers import MockDiscoveryProvider, OpenStreetMapOverpassProvider
 
 MOCK_BUSINESSES = (
     DiscoveredBusiness(
@@ -32,11 +29,12 @@ MOCK_BUSINESSES = (
 )
 
 
-def _geoapify_provider() -> GeoapifyProvider:
+def _geoapify_provider() -> RecoveringGeoapifyProvider:
     settings = get_settings()
-    return GeoapifyProvider(
+    return RecoveringGeoapifyProvider(
         api_key=settings.geoapify_api_key,
         search_endpoint=settings.geoapify_search_endpoint,
+        places_endpoint=settings.geoapify_places_endpoint,
         details_endpoint=settings.geoapify_details_endpoint,
         timeout_seconds=settings.geoapify_timeout_seconds,
     )

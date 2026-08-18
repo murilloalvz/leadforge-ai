@@ -7,7 +7,12 @@ from pathlib import Path
 from time import perf_counter
 
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryQuery
-from app.services.discovery.providers import DiscoveryProviderError, GeoapifyProvider
+from app.services.discovery.geoapify_recovery import (
+    RecoveringGeoapifyProvider,
+    recovery_categories_for_niche,
+)
+from app.services.discovery.geoapify_relevance import categories_for_niche
+from app.services.discovery.providers import DiscoveryProviderError
 
 DEFAULT_QUERIES = (
     DiscoveryQuery(niche="clínicas de estética", city="Campinas", state="SP", limit=4),
@@ -20,7 +25,14 @@ def summarize_query(
     query: DiscoveryQuery,
     businesses: tuple[DiscoveredBusiness, ...],
     latency_ms: float,
+    *,
+    recovery_diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
+    categorized = categories_for_niche(query.niche) is not None
+    recovery_enabled = recovery_categories_for_niche(query.niche) is not None
+    estimated_base_requests = 2 if categorized else 1
+    if recovery_enabled and len(businesses) < query.limit:
+        estimated_base_requests += 2
     return {
         "query": {
             "niche": query.niche,
@@ -28,10 +40,18 @@ def summarize_query(
             "state": query.state,
             "limit": query.limit,
         },
+        "discovery_mode": (
+            "places_category_boundary_with_recovery"
+            if recovery_enabled
+            else "places_category_boundary"
+            if categorized
+            else "textual_fallback"
+        ),
         "latency_ms": round(latency_ms, 1),
         "business_count": len(businesses),
         "website_count": sum(bool(item.website) for item in businesses),
         "phone_count": sum(bool(item.phone) for item in businesses),
+        "estimated_api_requests": len(businesses) + estimated_base_requests,
         "businesses": [
             {
                 "external_id": item.external_id,
@@ -39,9 +59,11 @@ def summarize_query(
                 "category": item.category,
                 "website_present": bool(item.website),
                 "phone_present": bool(item.phone),
+                "discovery_mode": item.raw.get("discovery_mode") if item.raw else None,
             }
             for item in businesses
         ],
+        "recovery_diagnostics": recovery_diagnostics or [],
     }
 
 
@@ -59,7 +81,7 @@ def main() -> int:
             "artifacts/geoapify-live-validation.json",
         )
     )
-    provider = GeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
+    provider = RecoveringGeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
 
     query_results: list[dict[str, object]] = []
     failures: list[dict[str, str]] = []
@@ -79,15 +101,25 @@ def main() -> int:
             continue
 
         latency_ms = (perf_counter() - started_at) * 1000
-        query_results.append(summarize_query(query, businesses, latency_ms))
+        query_results.append(
+            summarize_query(
+                query,
+                businesses,
+                latency_ms,
+                recovery_diagnostics=list(provider.last_recovery_diagnostics),
+            )
+        )
 
     total_businesses = sum(int(result["business_count"]) for result in query_results)
     website_count = sum(int(result["website_count"]) for result in query_results)
     phone_count = sum(int(result["phone_count"]) for result in query_results)
     latencies = [float(result["latency_ms"]) for result in query_results]
+    estimated_api_requests = sum(
+        int(result["estimated_api_requests"]) for result in query_results
+    )
 
     report = {
-        "schema_version": "geoapify-live-validation-v1",
+        "schema_version": "geoapify-live-validation-v4",
         "generated_at": datetime.now(UTC).isoformat(),
         "provider": "geoapify",
         "sample_query_count": len(DEFAULT_QUERIES),
@@ -102,13 +134,13 @@ def main() -> int:
         else 0.0,
         "average_latency_ms": round(sum(latencies) / len(latencies), 1) if latencies else None,
         "max_latency_ms": max(latencies) if latencies else None,
-        "estimated_api_requests": len(query_results) + total_businesses,
+        "estimated_api_requests": estimated_api_requests,
         "provider_health_passed": not failures and total_businesses > 0,
         "queries": query_results,
         "failures": failures,
         "note": (
-            "Small-sample provider health and coverage check; this is not proof of production "
-            "recall, accuracy, or SLA reliability."
+            "Small-sample provider health and relevance diagnostic. Recovery diagnostics expose "
+            "only business name/category/location and filter decisions; no contact values."
         ),
     }
 
