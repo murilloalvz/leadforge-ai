@@ -19,6 +19,8 @@ def test_live_validation_summary_does_not_export_contact_values() -> None:
 
     assert summary["website_count"] == 1
     assert summary["phone_count"] == 1
+    assert summary["discovery_mode"] == "places_category_boundary"
+    assert summary["estimated_api_requests"] == 3
     assert exported["website_present"] is True
     assert exported["phone_present"] is True
     assert "website" not in exported
