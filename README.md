@@ -6,7 +6,7 @@ O LeadForge é um **copiloto comercial para freelancers**.
 
 O produto não é exclusivo para desenvolvimento web. `web_development` é apenas o primeiro módulo validado do MVP. Veja `docs/PRODUCT_VISION.md` e `docs/ROADMAP.md`.
 
-## Estado atual — v0.3.6
+## Estado atual — v0.3.7
 
 A base inclui:
 
@@ -16,6 +16,9 @@ A base inclui:
 - providers substituíveis;
 - `mock` determinístico;
 - Geoapify como provider persistente preferido quando configurado;
+- descoberta Geoapify por Places API + boundary da cidade para nichos mapeados;
+- fallback textual conservador para nichos ainda não mapeados;
+- deduplicação exata e diversidade de marca preservando filiais;
 - OpenStreetMap/Overpass como fallback experimental;
 - `provider="auto"`;
 - deduplicação e reutilização de prospects;
@@ -59,17 +62,20 @@ Content-Type: application/json
 ```env
 LEADFORGE_GEOAPIFY_API_KEY=
 LEADFORGE_GEOAPIFY_SEARCH_ENDPOINT=https://api.geoapify.com/v1/geocode/search
+LEADFORGE_GEOAPIFY_PLACES_ENDPOINT=https://api.geoapify.com/v2/places
 LEADFORGE_GEOAPIFY_DETAILS_ENDPOINT=https://api.geoapify.com/v2/place-details
 LEADFORGE_GEOAPIFY_TIMEOUT_SECONDS=12
 ```
 
 A chave não possui valor default e nunca deve ser commitada.
 
-O provider faz uma busca textual de amenities limitada a 20 candidatos e usa Place Details para website/telefone quando disponíveis. Persiste apenas os campos usados pelo LeadForge e provenance reduzida.
+Na v0.3.7, nichos com categoria validada deixam de usar Forward Geocoding textual como busca principal. O provider resolve a boundary da cidade, consulta a Places API por categoria dentro dessa boundary, valida as categorias retornadas, remove duplicatas exatas e intercala marcas antes do limite final. Place Details é consultado somente para os candidatos selecionados.
+
+Mapeamentos iniciais: clínicas de estética, dentistas/odontologia e academias/fitness. Nichos ainda não mapeados continuam no fallback textual até terem categoria validada. Veja `docs/DISCOVERY_PROVIDERS.md`.
 
 Geoapify foi escolhido no lugar do Google Places para o caminho persistente porque o produto precisa armazenar prospects e exports. A política do Google Places restringe armazenamento/caching de conteúdo além das exceções permitidas, enquanto Geoapify documenta armazenamento/redistribuição de resultados com as atribuições exigidas.
 
-OpenStreetMap attribution deve ser preservada; no plano gratuito do Geoapify, attribution ao Geoapify também é exigida. Veja `docs/DISCOVERY_PROVIDERS.md`.
+OpenStreetMap attribution deve ser preservada; requisitos adicionais do plano Geoapify utilizado também devem ser respeitados.
 
 ### OpenStreetMap/Overpass
 
@@ -96,7 +102,7 @@ O JSON usa `discovery-export-v1`; o CSV possui proteção contra formula injecti
 
 ## Notificações e CI
 
-A partir da v0.3.6, a CI automática roda em pull requests e pushes na `main`. Feature branches não disparam CI em todo commit; execução manual continua disponível por `workflow_dispatch`. Isso reduz ruído de notificações sem remover o gate de integração.
+A CI automática roda em pull requests e pushes na `main`. Feature branches não disparam CI em todo commit; execução manual continua disponível por `workflow_dispatch`. Isso reduz ruído de notificações sem remover o gate de integração.
 
 ## Rodando localmente
 
@@ -115,9 +121,9 @@ ruff check .
 pytest -q
 ```
 
-## Gate restante da v0.3.6
+## Gate restante da v0.3.7
 
-A integração Geoapify é testável deterministicamente sem segredo. Para validar o provider real ainda falta configurar a chave fora do repo e executar 2–3 buscas pequenas, medindo latência, volume retornado, cobertura de website/telefone e falhas.
+O gate técnico real da v0.3.6 passou, mas revelou ruído de relevância no discovery. A v0.3.7 corrige a estratégia de consulta. Depois da CI verde, é obrigatório repetir **Geoapify Live Validation** e comparar o novo artifact com o anterior, verificando relevância dos negócios, cobertura de website/telefone, latência, falhas e consumo estimado.
 
 Somente depois desse gate o roadmap deve avançar para FreelancerProfile e Compatibility Engine.
 
