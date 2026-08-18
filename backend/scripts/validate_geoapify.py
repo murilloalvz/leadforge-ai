@@ -7,7 +7,11 @@ from pathlib import Path
 from time import perf_counter
 
 from app.services.discovery.contracts import DiscoveredBusiness, DiscoveryQuery
-from app.services.discovery.providers import DiscoveryProviderError, GeoapifyProvider
+from app.services.discovery.geoapify_relevance import (
+    RelevantGeoapifyProvider,
+    categories_for_niche,
+)
+from app.services.discovery.providers import DiscoveryProviderError
 
 DEFAULT_QUERIES = (
     DiscoveryQuery(niche="clínicas de estética", city="Campinas", state="SP", limit=4),
@@ -21,6 +25,7 @@ def summarize_query(
     businesses: tuple[DiscoveredBusiness, ...],
     latency_ms: float,
 ) -> dict[str, object]:
+    categorized = categories_for_niche(query.niche) is not None
     return {
         "query": {
             "niche": query.niche,
@@ -28,10 +33,12 @@ def summarize_query(
             "state": query.state,
             "limit": query.limit,
         },
+        "discovery_mode": "places_category_boundary" if categorized else "textual_fallback",
         "latency_ms": round(latency_ms, 1),
         "business_count": len(businesses),
         "website_count": sum(bool(item.website) for item in businesses),
         "phone_count": sum(bool(item.phone) for item in businesses),
+        "estimated_api_requests": len(businesses) + (2 if categorized else 1),
         "businesses": [
             {
                 "external_id": item.external_id,
@@ -59,7 +66,7 @@ def main() -> int:
             "artifacts/geoapify-live-validation.json",
         )
     )
-    provider = GeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
+    provider = RelevantGeoapifyProvider(api_key=api_key, timeout_seconds=timeout_seconds)
 
     query_results: list[dict[str, object]] = []
     failures: list[dict[str, str]] = []
@@ -85,9 +92,12 @@ def main() -> int:
     website_count = sum(int(result["website_count"]) for result in query_results)
     phone_count = sum(int(result["phone_count"]) for result in query_results)
     latencies = [float(result["latency_ms"]) for result in query_results]
+    estimated_api_requests = sum(
+        int(result["estimated_api_requests"]) for result in query_results
+    )
 
     report = {
-        "schema_version": "geoapify-live-validation-v1",
+        "schema_version": "geoapify-live-validation-v2",
         "generated_at": datetime.now(UTC).isoformat(),
         "provider": "geoapify",
         "sample_query_count": len(DEFAULT_QUERIES),
@@ -102,13 +112,13 @@ def main() -> int:
         else 0.0,
         "average_latency_ms": round(sum(latencies) / len(latencies), 1) if latencies else None,
         "max_latency_ms": max(latencies) if latencies else None,
-        "estimated_api_requests": len(query_results) + total_businesses,
+        "estimated_api_requests": estimated_api_requests,
         "provider_health_passed": not failures and total_businesses > 0,
         "queries": query_results,
         "failures": failures,
         "note": (
-            "Small-sample provider health and coverage check; this is not proof of production "
-            "recall, accuracy, or SLA reliability."
+            "Small-sample provider health, relevance and coverage check; this is not proof of "
+            "production recall, accuracy or SLA reliability."
         ),
     }
 
