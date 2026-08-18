@@ -25,13 +25,13 @@ def summarize_query(
     query: DiscoveryQuery,
     businesses: tuple[DiscoveredBusiness, ...],
     latency_ms: float,
+    *,
+    recovery_diagnostics: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     categorized = categories_for_niche(query.niche) is not None
     recovery_enabled = recovery_categories_for_niche(query.niche) is not None
     estimated_base_requests = 2 if categorized else 1
     if recovery_enabled and len(businesses) < query.limit:
-        # Sparse mapped niches execute the primary Places lookup, the validated textual
-        # fallback and the broader city-boundary recovery lookup before enrichment.
         estimated_base_requests += 2
     return {
         "query": {
@@ -41,9 +41,11 @@ def summarize_query(
             "limit": query.limit,
         },
         "discovery_mode": (
-            "places_category_boundary_with_recovery" if recovery_enabled else
-            "places_category_boundary" if categorized else
-            "textual_fallback"
+            "places_category_boundary_with_recovery"
+            if recovery_enabled
+            else "places_category_boundary"
+            if categorized
+            else "textual_fallback"
         ),
         "latency_ms": round(latency_ms, 1),
         "business_count": len(businesses),
@@ -61,6 +63,7 @@ def summarize_query(
             }
             for item in businesses
         ],
+        "recovery_diagnostics": recovery_diagnostics or [],
     }
 
 
@@ -98,7 +101,14 @@ def main() -> int:
             continue
 
         latency_ms = (perf_counter() - started_at) * 1000
-        query_results.append(summarize_query(query, businesses, latency_ms))
+        query_results.append(
+            summarize_query(
+                query,
+                businesses,
+                latency_ms,
+                recovery_diagnostics=list(provider.last_recovery_diagnostics),
+            )
+        )
 
     total_businesses = sum(int(result["business_count"]) for result in query_results)
     website_count = sum(int(result["website_count"]) for result in query_results)
@@ -109,7 +119,7 @@ def main() -> int:
     )
 
     report = {
-        "schema_version": "geoapify-live-validation-v3",
+        "schema_version": "geoapify-live-validation-v4",
         "generated_at": datetime.now(UTC).isoformat(),
         "provider": "geoapify",
         "sample_query_count": len(DEFAULT_QUERIES),
@@ -129,8 +139,8 @@ def main() -> int:
         "queries": query_results,
         "failures": failures,
         "note": (
-            "Small-sample provider health, relevance and coverage check; this is not proof of "
-            "production recall, accuracy or SLA reliability."
+            "Small-sample provider health and relevance diagnostic. Recovery diagnostics expose "
+            "only business name/category/location and filter decisions; no contact values."
         ),
     }
 
