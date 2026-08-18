@@ -40,34 +40,44 @@ CSV/JSON de Discovery Runs, `discovery-export-v1`, determinismo e proteção con
 
 Quatro sites públicos reais, ranking/dedup/export validados e regressão para falso positivo de título longo. Overpass mostrou 502/timeouts em runners cloud e permaneceu experimental.
 
-### v0.3.6 — Discovery Provider hardening — implementação atual
+### v0.3.6 — Discovery Provider hardening — concluída
 
-Objetivo: retirar o Overpass da posição de única fonte real sem acoplar o Discovery Engine a um fornecedor.
+- Google Places avaliado e descartado para o caminho persistente por restrições de storage/caching incompatíveis com Prospect/Evidence/export;
+- Geoapify adicionado como provider persistente preferido;
+- chave apenas por ambiente/GitHub secret;
+- workflow manual `Geoapify Live Validation`;
+- gate real executado em 18/08/2026: 3/3 queries concluídas, 12 empresas, zero falhas de provider, cobertura aproximada de 66,7% para website e telefone.
 
-Decisões e implementação:
+O gate confirmou saúde técnica do provider, mas revelou ruído de relevância: hospitais em busca de estética e concentração de várias unidades da mesma rede em academias.
 
-- Google Places foi avaliado e descartado para o caminho persistente por incompatibilidade entre suas restrições de caching/storage e a necessidade do LeadForge de persistir prospects/exports;
-- Geoapify foi escolhido como provider persistente preferido porque documenta armazenamento/redistribuição dos resultados com attribution apropriada;
-- Geoapify usa dados principalmente de OpenStreetMap;
-- busca textual de amenities + Place Details para website/telefone quando disponíveis;
-- limite externo de 20 candidatos por busca;
-- API key apenas por ambiente/configuração;
-- payload persistido minimizado;
-- `provider="auto"`: Geoapify quando há chave, Overpass experimental caso contrário;
-- provider mock mantido para testes determinísticos;
-- testes Geoapify via `httpx.MockTransport`, sem segredo real;
-- CI automática removida de pushes de feature branch; PR/main continuam gates automáticos;
-- estratégia/attribution documentadas em `docs/DISCOVERY_PROVIDERS.md`.
+### v0.3.7 — Discovery Relevance Hardening — em implementação
 
-Pendente para fechar a validação real:
+Objetivo: corrigir a consulta, não mascarar ruído com heurísticas pós-hoc frágeis.
 
-- configurar `LEADFORGE_GEOAPIFY_API_KEY` fora do repositório;
-- executar 2–3 buscas pequenas em nichos/cidades diferentes;
-- medir latência, quantidade retornada, cobertura de website/telefone e falhas;
-- validar Site Analyzer → OpportunityAssessment → export usando os resultados;
-- registrar attribution e custo/consumo observado.
+Para nichos com mapeamento de categoria validado:
 
-Nenhuma credencial deve ser commitada ou colocada na documentação.
+```text
+cidade → place_id da boundary
+→ Places API por categoria dentro da cidade
+→ validação de categoria
+→ deduplicação exata
+→ diversidade de marca preservando filiais
+→ detalhes somente dos candidatos selecionados
+```
+
+Mapeamentos iniciais:
+
+- clínicas de estética;
+- dentistas/odontologia;
+- academias/fitness.
+
+Nichos ainda não mapeados continuam no fallback textual existente até terem categoria validada.
+
+Gate de saída:
+
+- CI verde;
+- repetir `Geoapify Live Validation`;
+- revisão manual comprovar melhora de relevância sem regressão grave de cobertura/latência/consumo.
 
 ### v1.0 — Opportunity Intelligence MVP útil
 
