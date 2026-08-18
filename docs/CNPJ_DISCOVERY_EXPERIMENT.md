@@ -55,14 +55,49 @@ python scripts/experiment_cnpj_dentists.py \
 
 Para uma medição completa, passe todos os arquivos de estabelecimentos do lote baixado.
 
+## Validação real leve — 18/08/2026
+
+Antes de baixar o dump nacional completo, fizemos uma validação leve para responder apenas se a hipótese de cobertura era plausível.
+
+A Fundação Seade, órgão oficial do Estado de São Paulo, publica o conjunto **Seade Empresa**, derivado do Cadastro Nacional de Pessoas Jurídicas da Receita Federal. O recurso de empresas estava atualizado em 10/08/2026 e possui cerca de 6 MiB, o que confirmou que existe um caminho estadual muito menor para análises agregadas do que baixar imediatamente o dump nacional completo.
+
+Além disso, consultas públicas baseadas em dados cadastrais da Receita mostraram múltiplos estabelecimentos **ativos**, localizados em **Jundiaí/SP**, com CNAE principal `8630504 — Atividade odontológica`. Entre os exemplos observados estão:
+
+- Clínicas Odontológicas Viva Sorrindo Jundiaí Ltda;
+- Rigo & Cardoso Odontologia Ltda;
+- ERM - Serviços Odontológicos Ltda (Odonto Company);
+- F Scurissa Melchert Odontologia;
+- Clínica Dentária Jundiaí Ltda;
+- S C Lopes Zanutel Odontologia;
+- Elev Odontologia e Estética Ltda;
+- Instituto Excellence Clínica Odontológica Ltda;
+- M.V.L. Consultório Odontológico;
+- CM Clínica Odontológica Ltda (CM Odontologia Digital).
+
+### Conclusão desta validação
+
+A hipótese mínima foi **confirmada**: dados cadastrais baseados em CNPJ/CNAE enxergam estabelecimentos odontológicos ativos em Jundiaí que não apareceram na validação do Geoapify.
+
+Isso ainda **não é uma contagem completa** da base oficial e não mede todos os estabelecimentos existentes. O dump integral continua sendo a forma correta de obter uma medição exata e reproduzível com o script deste PR.
+
+Portanto, a decisão nesta fase é:
+
+- considerar CNPJ/CNAE uma fonte promissora para complementar o discovery;
+- não transformar ainda o experimento em provider de produção;
+- evitar baixar vários GB apenas para provar que a cobertura é maior que zero;
+- numa próxima fase de implementação, decidir a estratégia operacional de ingestão/recorte dos dados oficiais.
+
 ## Como interpretar
 
-Se a contagem for claramente maior que zero e a amostra parecer coerente, teremos evidência de que CNPJ/CNAE pode complementar o Geoapify para descoberta de empresas.
+Se a contagem completa for claramente maior que zero e a amostra parecer coerente, teremos evidência quantitativa reproduzível de que CNPJ/CNAE pode complementar o Geoapify para descoberta de empresas.
 
-Se a cobertura continuar ruim, não transformaremos a ideia em provider apenas porque já escrevemos código. O objetivo do experimento é reduzir incerteza antes de aumentar a arquitetura.
+A validação leve já reduziu a principal incerteza: sabemos que existem empresas odontológicas ativas no recorte cadastral. A medição completa passa a servir para dimensionar cobertura, não mais para provar existência.
+
+Se uma futura medição completa mostrar limitações inesperadas, não transformaremos a ideia em provider apenas porque já escrevemos código.
 
 ## Limites deste experimento
 
+- a validação leve não representa uma contagem exaustiva;
 - não faz enriquecimento de website;
 - não analisa oportunidade comercial;
 - não consulta responsáveis ou quadro societário;
@@ -72,4 +107,4 @@ Se a cobertura continuar ruim, não transformaremos a ideia em provider apenas p
 
 ## Fontes de referência
 
-O experimento foi desenhado a partir da documentação oficial da Receita Federal sobre dados abertos do CNPJ e do layout cadastral, e da classificação oficial de CNAE da CONCLA/IBGE.
+O experimento foi desenhado a partir da documentação oficial da Receita Federal sobre dados abertos do CNPJ e do layout cadastral, da classificação oficial de CNAE da CONCLA/IBGE e, para a validação leve, do conjunto Seade Empresa e de consultas públicas que reproduzem dados cadastrais da Receita.
